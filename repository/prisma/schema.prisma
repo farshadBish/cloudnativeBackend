@@ -26,9 +26,11 @@ model ArtPiece {
   id          Int      @id @default(autoincrement())
   title       String
   description String
+  artist      String
   price       Float
   tags        String[]
   year        Int
+  folderName  String   @default(dbgenerated("gen_random_uuid()"))
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
   userId      Int
@@ -36,43 +38,3 @@ model ArtPiece {
   likedBy     User[]   @relation("UserLikedArtPieces")
   inCart      User[]   @relation("UserCartArtPieces")
 }
-
-// ----------------------------------------------------------- //
-
-// model VoiceChat {
-//   id        Int            @id @default(autoincrement())
-//   name      String         @default("VoiceChat")
-//   user      User?          @relation("UserVoiceChats", fields: [userId], references: [id], onDelete: Cascade)
-//   userId    Int?
-//   messages  VoiceMessage[] @relation("VoiceChatMessages")
-//   createdAt DateTime       @default(now())
-// }
-
-// model VoiceMessage {
-//   id         Int          @id @default(autoincrement())
-//   prompt     String
-//   content    String
-//   chat       VoiceChat?   @relation("VoiceChatMessages", fields: [chatId], references: [id], onDelete: Cascade)
-//   chatId     Int?
-//   correction Correction[] @relation("VoiceMessageCorrection")
-//   createdAt  DateTime     @default(now())
-// }
-
-// model Correction {
-//   id             Int          @id @default(autoincrement())
-//   description    String
-//   mistakes       Mistake[]    @relation("VoiceMessageCorrectionMistakes")
-//   voiceMessage   VoiceMessage @relation("VoiceMessageCorrection", fields: [voiceMessageId], references: [id], onDelete: Cascade)
-//   voiceMessageId Int
-//   createdAt      DateTime     @default(now())
-// }
-
-// model Mistake {
-//   id              Int        @id @default(autoincrement())
-//   problematicWord String
-//   explanation     String
-//   correction      Correction @relation("VoiceMessageCorrectionMistakes", fields: [correctionId], references: [id], onDelete: Cascade)
-//   correctionId    Int
-//   brokeSubject    Boolean
-//   createdAt       DateTime   @default(now())
-// }

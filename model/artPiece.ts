@@ -7,9 +7,11 @@ export class ArtPiece {
     readonly description: string;
     readonly user?: User;
     readonly userId: number;
+    readonly artist?: string;
     readonly price: number;
     readonly tags: string[];
     readonly year: number;
+    readonly folderName?: string;
     readonly likedBy?: User[];
     readonly inCart?: User[];
     readonly updatedAt?: Date;
@@ -19,11 +21,13 @@ export class ArtPiece {
         id?: number;
         title: string;
         description: string;
+        artist?: string;
         user?: User;
         userId: number;
         price: number;
         tags: string[];
         year: number;
+        folderName?: string;
         likedBy?: User[];
         inCart?: User[];
         updatedAt?: Date;
@@ -32,11 +36,13 @@ export class ArtPiece {
         this.id = artPiece.id;
         this.title = artPiece.title;
         this.description = artPiece.description;
+        this.artist = artPiece.artist;
         this.user = artPiece.user;
         this.userId = artPiece.userId;
         this.price = artPiece.price;
         this.tags = artPiece.tags;
         this.year = artPiece.year;
+        this.folderName = artPiece.folderName;
         this.likedBy = artPiece.likedBy;
         this.inCart = artPiece.inCart;
         this.updatedAt = artPiece.updatedAt;
@@ -91,15 +97,25 @@ export class ArtPiece {
         return this.inCart;
     }
 
+    getFolderName(): string | undefined {
+        return this.folderName;
+    }
+
+    getArtist(): string | undefined {
+        return this.artist;
+    }
+
     static from(artPiecePrisma: ArtPiecePrisma): ArtPiece {
         return new ArtPiece({
             id: artPiecePrisma.id,
             title: artPiecePrisma.title,
             description: artPiecePrisma.description,
+            artist: artPiecePrisma.artist,
             userId: artPiecePrisma.userId,
             price: artPiecePrisma.price,
             tags: artPiecePrisma.tags,
             year: artPiecePrisma.year,
+            folderName: `artPieces/${artPiecePrisma.folderName}`,
             updatedAt: artPiecePrisma.updatedAt,
             createdAt: artPiecePrisma.createdAt,
         });

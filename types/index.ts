@@ -19,9 +19,10 @@ export type ArtPieceInput = {
     id?: number;
     title?: string;
     description?: string;
-    user?: User;
+    artist?: string;
+    userId?: number;
     price?: number;
-    tags?: string[];
+    tags?: string[] | string;
     year?: number;
 };
 

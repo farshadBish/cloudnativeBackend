@@ -36,10 +36,12 @@ const main = async () => {
             id: 1,
             title: 'Mona Lisa',
             description: 'A portrait of a woman',
+            artist: 'Leonardo da Vinci',
             userId: Leonardo.id,
             price: 1000000,
             tags: ['portrait', 'renaissance'],
             year: 1503,
+            folderName: 'mona-lisa',
         },
     });
 
