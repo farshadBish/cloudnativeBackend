@@ -103,6 +103,7 @@ const createArtPiece = async ({
     price,
     tags,
     year,
+    url
 }: {
     title: string;
     description: string;
@@ -111,6 +112,7 @@ const createArtPiece = async ({
     price: number;
     tags: string[];
     year: number;
+    url: string;
 }): Promise<ArtPiece> => {
     try {
         const newArtPiece = await database.artPiece.create({
@@ -122,6 +124,7 @@ const createArtPiece = async ({
                 price,
                 tags,
                 year,
+                url
             },
             include: { User: true },
         });

@@ -65,7 +65,7 @@ import path from 'path';
 import fs from 'fs/promises';
 
 const registerArtPiece = async (
-    { title, description, price, artist, tags, year }: ArtPieceInput,
+    { title, description, price, artist, tags, year, url }: ArtPieceInput,
     files: Express.Multer.File[],
     username: string,
     role: string
@@ -74,7 +74,7 @@ const registerArtPiece = async (
     const user = await userDb.getUserByUsername({ username });
     if (!user) throw new Error('User not found.');
 
-    if (!title || !description || !user.getId() || !tags || !artist || !price || !year) {
+    if (!title || !description || !user.getId() || !tags || !artist || !price || !year || !url) {
         throw new Error('All Art Piece fields are required.');
     }
     const userId = user.getId();
@@ -91,6 +91,8 @@ const registerArtPiece = async (
         price: parseFloat(price.toString()),
         tags: Array.isArray(tags) ? tags : [tags],
         year: parseInt(year.toString()),
+        url,
+        
     });
 
     // Ensure folder exists (based on artPiece.id or similar logic)

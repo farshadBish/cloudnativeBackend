@@ -24,6 +24,7 @@ export type ArtPieceInput = {
     price?: number;
     tags?: string[] | string;
     year?: number;
+    url?: string
 };
 
 export type AuthenticationResponse = {
