@@ -23,7 +23,7 @@ app.use(
     }).unless({
         path: [
             // '/user',
-            // '/item',
+            '/item',
             '/api-docs',
             /^\/api-docs\/.*/,
             '/user/login',
