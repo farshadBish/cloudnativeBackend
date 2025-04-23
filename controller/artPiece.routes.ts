@@ -73,8 +73,8 @@ artPieceRouter.post(
 
 artPieceRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { auth } = req as Request & { auth: { username: string; role: Role } };
-        const { username, role } = auth;
+        // const { auth } = req as Request & { auth: { username: string; role: Role } };
+        // const { username, role } = auth;
         const response = await ArtPieceService.getAllArtPieces();
         res.status(200).json(response);
     } catch (error) {
