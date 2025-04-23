@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { AuthenticationResponse, UserInput, UserLoginInput } from '../types';
+import { AuthenticationResponse, RegisterUserInput, UserInput, UserLoginInput } from '../types';
 import { generateJwtToken } from '../util/jwt';
 import { User } from '../model/user';
 import userDb from '../repository/user.db';
@@ -34,28 +34,33 @@ const getUserByUsername = async ({ username }: { username: string }): Promise<Us
     return user;
 };
 
-const registerUser = async ({
-    username,
-    password,
-    firstName,
-    lastName,
-    email,
-}: UserInput): Promise<User> => {
+const registerUser = async (input: UserInput): Promise<User> => {
+    const { username, password, firstName, lastName, email } = input;
+
+    // 1) basic validation
     if (!username || !password) {
         throw new Error('Username and password are required.');
     }
-
     if (!firstName || !lastName || !email) {
         throw new Error('First name, last name, and email are required.');
     }
 
-    const existingUser = await userDb.getUserByUsername({ username });
-    if (existingUser) {
+    // 2) check for existing
+    const existing = await userDb.getUserByUsername({ username });
+    if (existing) {
         throw new Error(`User with username: ${username} already exists.`);
     }
+
+    // 3) hash & forward DTO to repo
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ username, password: hashedPassword, firstName, lastName, email });
-    return userDb.registerUser(newUser);
+    const dto: RegisterUserInput = {
+        username,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        email,
+    };
+    return userDb.registerUser(dto);
 };
 
 const authenticate = async ({

@@ -1,58 +1,99 @@
-import { ArtPiece as ArtPiecePrisma } from '@prisma/client';
 import { User } from './user';
 
+/**
+ * Shape of a Cosmos DB ArtPiece document
+ */
+export interface RawArtPiece {
+    id: string;
+    title: string;
+    description: string;
+    artist: string;
+    userId: string; // reference to User.id
+    price: number;
+    tags: string[];
+    year: number;
+    url?: string;
+    folderName: string;
+    likedBy?: string[]; // array of User IDs
+    inCart?: string[]; // array of User IDs
+    createdAt: string; // ISO timestamp
+    updatedAt: string; // ISO timestamp
+}
+
 export class ArtPiece {
-    readonly id?: number;
+    readonly id: string;
     readonly title: string;
     readonly description: string;
-    readonly user?: User;
-    readonly userId: number;
-    readonly artist?: string;
+    readonly artist: string;
+    readonly userId: string;
     readonly price: number;
     readonly tags: string[];
     readonly year: number;
-    readonly folderName?: string;
     readonly url?: string;
-    readonly likedBy?: User[];
-    readonly inCart?: User[];
-    readonly updatedAt?: Date;
-    readonly createdAt?: Date;
+    readonly folderName: string;
+    readonly likedBy: string[];
+    readonly inCart: string[];
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
+    user?: User;
 
-    constructor(artPiece: {
-        id?: number;
+    constructor(props: {
+        id: string;
         title: string;
         description: string;
-        artist?: string;
-        user?: User;
-        userId: number;
+        artist: string;
+        userId: string;
         price: number;
         tags: string[];
         year: number;
-        folderName?: string;
         url?: string;
-        likedBy?: User[];
-        inCart?: User[];
-        updatedAt?: Date;
+        folderName: string;
+        likedBy?: string[];
+        inCart?: string[];
         createdAt?: Date;
+        updatedAt?: Date;
+        user?: User;
     }) {
-        this.id = artPiece.id;
-        this.title = artPiece.title;
-        this.description = artPiece.description;
-        this.artist = artPiece.artist;
-        this.user = artPiece.user;
-        this.userId = artPiece.userId;
-        this.price = artPiece.price;
-        this.tags = artPiece.tags;
-        this.year = artPiece.year;
-        this.folderName = artPiece.folderName;
-        this.url = artPiece.url;
-        this.likedBy = artPiece.likedBy;
-        this.inCart = artPiece.inCart;
-        this.updatedAt = artPiece.updatedAt;
-        this.createdAt = artPiece.createdAt;
+        this.id = props.id;
+        this.title = props.title;
+        this.description = props.description;
+        this.artist = props.artist;
+        this.userId = props.userId;
+        this.price = props.price;
+        this.tags = props.tags;
+        this.year = props.year;
+        this.url = props.url;
+        this.folderName = props.folderName;
+        this.likedBy = props.likedBy || [];
+        this.inCart = props.inCart || [];
+        this.createdAt = props.createdAt || new Date();
+        this.updatedAt = props.updatedAt || new Date();
+        this.user = props.user;
     }
 
-    getId(): number | undefined {
+    /**
+     * Factory to build an ArtPiece from raw Cosmos data
+     */
+    static from(raw: RawArtPiece): ArtPiece {
+        return new ArtPiece({
+            id: raw.id,
+            title: raw.title,
+            description: raw.description,
+            artist: raw.artist,
+            userId: raw.userId,
+            price: raw.price,
+            tags: raw.tags,
+            year: raw.year,
+            url: raw.url,
+            folderName: raw.folderName,
+            likedBy: raw.likedBy,
+            inCart: raw.inCart,
+            createdAt: new Date(raw.createdAt),
+            updatedAt: new Date(raw.updatedAt),
+        });
+    }
+
+    getId(): string {
         return this.id;
     }
 
@@ -64,11 +105,11 @@ export class ArtPiece {
         return this.description;
     }
 
-    getUser(): User | undefined {
-        return this.user;
+    getArtist(): string {
+        return this.artist;
     }
 
-    getUserId(): number {
+    getUserId(): string {
         return this.userId;
     }
 
@@ -77,51 +118,34 @@ export class ArtPiece {
     }
 
     getTags(): string[] {
-        return this.tags;
+        return [...this.tags];
     }
 
     getYear(): number {
         return this.year;
     }
 
-    getUpdatedAt(): Date | undefined {
-        return this.updatedAt;
+    getUrl(): string | undefined {
+        return this.url;
     }
 
-    getCreatedAt(): Date | undefined {
-        return this.createdAt;
-    }
-
-    getLikedBy(): User[] | undefined {
-        return this.likedBy;
-    }
-
-    getInCart(): User[] | undefined {
-        return this.inCart;
-    }
-
-    getFolderName(): string | undefined {
+    getFolderName(): string {
         return this.folderName;
     }
 
-    getArtist(): string | undefined {
-        return this.artist;
+    getLikedByIds(): string[] {
+        return [...this.likedBy];
     }
 
-    static from(artPiecePrisma: ArtPiecePrisma): ArtPiece {
-        return new ArtPiece({
-            id: artPiecePrisma.id,
-            title: artPiecePrisma.title,
-            description: artPiecePrisma.description,
-            artist: artPiecePrisma.artist,
-            userId: artPiecePrisma.userId,
-            price: artPiecePrisma.price,
-            tags: artPiecePrisma.tags,
-            year: artPiecePrisma.year,
-            folderName: `artPieces/${artPiecePrisma.folderName}`,
-            url: artPiecePrisma.url,
-            updatedAt: artPiecePrisma.updatedAt,
-            createdAt: artPiecePrisma.createdAt,
-        });
+    getInCartIds(): string[] {
+        return [...this.inCart];
+    }
+
+    getCreatedAt(): Date {
+        return this.createdAt;
+    }
+
+    getUpdatedAt(): Date {
+        return this.updatedAt;
     }
 }

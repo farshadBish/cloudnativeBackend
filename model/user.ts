@@ -1,52 +1,88 @@
-import { User as UserPrisma } from '@prisma/client';
-import { ArtPiece as ArtPiecePrisma } from '@prisma/client';
-import { ArtPiece } from './artPiece';
+// src/model/user.ts
 import { Role } from '../types';
+import { ArtPiece } from './artPiece';
+
+/**
+ * Raw shape of a Cosmos DB user document
+ */
+export interface RawUser {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    role?: Role;
+    likedArtPieces?: string[]; // array of ArtPiece IDs
+    cart?: string[]; // array of ArtPiece IDs
+    createdPieces?: string[]; // array of ArtPiece IDs
+    createdAt: string; // ISO timestamp
+    updatedAt: string; // ISO timestamp
+}
 
 export class User {
-    readonly id?: number;
+    readonly id: string;
     readonly username: string;
     readonly firstName: string;
     readonly lastName: string;
     readonly email: string;
     readonly password: string;
-    readonly role?: Role;
-    readonly likedArtPieces?: ArtPiece[];
-    readonly cart?: ArtPiece[];
-    readonly createdPieces?: ArtPiece[];
-    readonly updatedAt?: Date;
-    readonly createdAt?: Date;
+    readonly role: Role;
+    readonly likedArtPieces: string[];
+    readonly cart: string[];
+    readonly createdPieces: string[];
+    readonly createdAt: Date;
+    readonly updatedAt: Date;
 
-    constructor(user: {
-        id?: number;
+    constructor(props: {
+        id: string;
         username: string;
         firstName: string;
         lastName: string;
         email: string;
         password: string;
         role?: Role;
-        likedArtPieces?: ArtPiece[];
-        cart?: ArtPiece[];
-        createdPieces?: ArtPiece[];
-        updatedAt?: Date;
+        likedArtPieces?: string[];
+        cart?: string[];
+        createdPieces?: string[];
         createdAt?: Date;
+        updatedAt?: Date;
     }) {
-        this.validate(user);
-        this.id = user.id;
-        this.username = user.username;
-        this.firstName = user.firstName;
-        this.lastName = user.lastName;
-        this.email = user.email;
-        this.password = user.password;
-        this.role = user.role || 'user';
-        this.likedArtPieces = user.likedArtPieces;
-        this.cart = user.cart;
-        this.createdPieces = user.createdPieces;
-        this.updatedAt = user.updatedAt;
-        this.createdAt = user.createdAt;
+        this.id = props.id;
+        this.username = props.username;
+        this.firstName = props.firstName;
+        this.lastName = props.lastName;
+        this.email = props.email;
+        this.password = props.password;
+        this.role = props.role || 'user';
+        this.likedArtPieces = props.likedArtPieces || [];
+        this.cart = props.cart || [];
+        this.createdPieces = props.createdPieces || [];
+        this.createdAt = props.createdAt || new Date();
+        this.updatedAt = props.updatedAt || new Date();
     }
 
-    getId(): number | undefined {
+    /**
+     * Factory method to create a User from a raw Cosmos DB document
+     */
+    static from(raw: RawUser): User {
+        return new User({
+            id: raw.id,
+            username: raw.username,
+            firstName: raw.firstName,
+            lastName: raw.lastName,
+            email: raw.email,
+            password: raw.password,
+            role: raw.role,
+            likedArtPieces: raw.likedArtPieces,
+            cart: raw.cart,
+            createdPieces: raw.createdPieces,
+            createdAt: new Date(raw.createdAt),
+            updatedAt: new Date(raw.updatedAt),
+        });
+    }
+
+    getId(): string {
         return this.id;
     }
 
@@ -70,121 +106,35 @@ export class User {
         return this.password;
     }
 
-    getUpdatedAt(): Date | undefined {
-        return this.updatedAt;
+    getRole(): Role {
+        return this.role;
     }
 
-    getCreatedAt(): Date | undefined {
+    getLikedArtPieceIds(): string[] {
+        return [...this.likedArtPieces];
+    }
+
+    getCartIds(): string[] {
+        return [...this.cart];
+    }
+
+    getCreatedPieceIds(): string[] {
+        return [...this.createdPieces];
+    }
+
+    getCreatedAt(): Date {
         return this.createdAt;
     }
 
-    getLikedArtPieces(): ArtPiece[] | undefined {
-        return this.likedArtPieces ?? [];
+    getUpdatedAt(): Date {
+        return this.updatedAt;
     }
 
-    getCart(): ArtPiece[] | undefined {
-        return this.cart;
-    }
-
-    getCreatedPieces(): ArtPiece[] | undefined {
-        return this.createdPieces;
-    }
-
-    getRole(): Role {
-        return this.role || 'user';
-    }
-
-    addLikedArtPiece(artPiece: ArtPiece): ArtPiece[] {
-        if (artPiece.getUser()?.getId() === this.id) {
-            throw new Error('Cannot like your own art piece');
-        }
-
-        if (this.likedArtPieces?.some((piece) => piece.getId() === artPiece.getId())) {
-            throw new Error('Art piece is already liked');
-        }
-
-        this.likedArtPieces?.push(artPiece);
-        return this.likedArtPieces || [];
-    }
-
-    addArtPieceToCart(artPiece: ArtPiece): ArtPiece[] {
-        if (artPiece.getUser()?.getId() === this.id) {
-            throw new Error('Cannot add your own art piece to cart');
-        }
-
-        if (this.cart?.some((piece) => piece.getId() === artPiece.getId())) {
-            throw new Error('Art piece is already in cart');
-        }
-
-        this.cart?.push(artPiece);
-        return this.cart || [];
-    }
-
-    validate(user: {
-        username: string;
-        firstName: string;
-        lastName: string;
-        email: string;
-        password: string;
-    }) {
-        if (!user.username?.trim()) {
-            throw new Error('Username is required');
-        }
-        if (!user.firstName?.trim()) {
-            throw new Error('First name is required');
-        }
-        if (!user.lastName?.trim()) {
-            throw new Error('Last name is required');
-        }
-        if (!user.email?.trim()) {
-            throw new Error('Email is required');
-        }
-        if (!user.password?.trim()) {
-            throw new Error('Password is required');
-        }
-    }
-
-    equals(user: User): boolean {
-        return (
-            this.username === user.getUsername() &&
-            this.firstName === user.getFirstName() &&
-            this.lastName === user.getLastName() &&
-            this.email === user.getEmail() &&
-            this.password === user.getPassword()
-        );
-    }
-
-    static from({
-        id,
-        username,
-        firstName,
-        lastName,
-        email,
-        password,
-        role,
-        likedArtPieces,
-        cart,
-        createdPieces,
-        updatedAt,
-        createdAt,
-    }: UserPrisma & {
-        likedArtPieces?: ArtPiecePrisma[];
-        cart?: ArtPiecePrisma[];
-        createdPieces?: ArtPiecePrisma[];
-    }): User {
-        return new User({
-            id,
-            username,
-            firstName,
-            lastName,
-            email,
-            password,
-            role: role as Role,
-            likedArtPieces: likedArtPieces?.map((artPiece) => ArtPiece.from(artPiece)),
-            cart: cart?.map((artPiece) => ArtPiece.from(artPiece)),
-            createdPieces: createdPieces?.map((artPiece) => ArtPiece.from(artPiece)),
-            updatedAt,
-            createdAt,
-        });
+    validate(): void {
+        if (!this.username.trim()) throw new Error('Username is required');
+        if (!this.firstName.trim()) throw new Error('First name is required');
+        if (!this.lastName.trim()) throw new Error('Last name is required');
+        if (!this.email.trim()) throw new Error('Email is required');
+        if (!this.password.trim()) throw new Error('Password is required');
     }
 }

@@ -21,6 +21,7 @@
         }
     },
     "dependencies": {
+        "@azure/cosmos": "^4.3.0",
         "@prisma/client": "^5.1.1",
         "bcrypt": "^5.1.0",
         "bcryptjs": "^2.4.3",
@@ -38,6 +39,7 @@
         "openai": "^4.89.1",
         "swagger-jsdoc": "^6.2.0",
         "swagger-ui-express": "^4.6.0",
+        "uuid": "^11.1.0",
         "virtual-art-gallery-backend": "file:",
         "zod": "^3.24.2"
     },

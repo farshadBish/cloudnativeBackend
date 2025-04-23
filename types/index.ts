@@ -10,6 +10,14 @@ export type UserInput = {
     role?: string;
 };
 
+export interface RegisterUserInput {
+    username: string;
+    password: string;
+    email: string;
+    lastName: string;
+    firstName: string;
+}
+
 export type UserLoginInput = {
     username: string;
     password: string;
@@ -24,7 +32,7 @@ export type ArtPieceInput = {
     price?: number;
     tags?: string[] | string;
     year?: number;
-    url?: string
+    url?: string;
 };
 
 export type AuthenticationResponse = {
