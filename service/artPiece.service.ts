@@ -64,8 +64,23 @@ import userDb from '../repository/user.db';
 import path from 'path';
 import fs from 'fs/promises';
 
+import { BlobServiceClient } from "@azure/storage-blob";
+
+import dotenv from 'dotenv';
+dotenv.config();
+
+const accountName = process.env.AZURE_ACCOUNT_NAME!;
+const sasToken = process.env.AZURE_SAS_TOKEN!;
+const accountURL = `https://${accountName}.blob.core.windows.net/?${sasToken}`;
+
+const blobServiceClient = new BlobServiceClient(
+    accountURL
+);
+const containerName = "image";
+let containerClient = blobServiceClient.getContainerClient(containerName);
+
 const registerArtPiece = async (
-    { title, description, price, artist, tags, year, url }: ArtPieceInput,
+    { title, description, price, artist, tags, year }: ArtPieceInput,
     files: Express.Multer.File[],
     username: string,
     role: string
@@ -74,7 +89,7 @@ const registerArtPiece = async (
     const user = await userDb.getUserByUsername({ username });
     if (!user) throw new Error('User not found.');
 
-    if (!title || !description || !user.getId() || !tags || !artist || !price || !year || !url) {
+    if (!title || !description || !user.getId() || !tags || !artist || !price || !year ) {
         throw new Error('All Art Piece fields are required.');
     }
     const userId = user.getId();
@@ -83,6 +98,31 @@ const registerArtPiece = async (
         throw new Error('User ID is required.');
     }
 
+    
+
+    // Ensure folder exists (based on artPiece.id or similar logic)
+    const folderName = userId; // Assuming folderName is generated from artPiece ID or similar
+    const folderPath = path.resolve(__dirname, '../artPieces', folderName);
+    await fs.mkdir(folderPath, { recursive: true });
+
+    // Move files into the folder
+    const movedImages: string[] = [];
+    let blobUrl ;
+    for (const file of files) {
+        const newFilePath = path.join(folderPath, file.originalname);
+        await fs.rename(file.path, newFilePath); // move temp upload
+        movedImages.push(file.originalname);
+        const blockBlobClient = containerClient.getBlockBlobClient(file.originalname);
+        await blockBlobClient.uploadFile(newFilePath);
+
+        const tempBlockBlobClient = containerClient.getBlockBlobClient(file.originalname);
+        blobUrl = tempBlockBlobClient.url
+    }
+
+  
+    
+
+    
     const artPiece = await artPieceDb.createArtPiece({
         title,
         description,
@@ -91,22 +131,8 @@ const registerArtPiece = async (
         price: parseFloat(price.toString()),
         tags: Array.isArray(tags) ? tags : [tags],
         year: parseInt(year.toString()),
-        url,
-        
+        url: blobUrl
     });
-
-    // Ensure folder exists (based on artPiece.id or similar logic)
-    const folderName = `${artPiece.getFolderName()}`; // Assuming folderName is generated from artPiece ID or similar
-    const folderPath = path.resolve(__dirname, '../artPieces', folderName);
-    await fs.mkdir(folderPath, { recursive: true });
-
-    // Move files into the folder
-    const movedImages: string[] = [];
-    for (const file of files) {
-        const newFilePath = path.join(folderPath, file.originalname);
-        await fs.rename(file.path, newFilePath); // move temp upload
-        movedImages.push(file.originalname);
-    }
 
     return {
         response: artPiece,
