@@ -84,19 +84,63 @@ export const getAllArtPieces = async (): Promise<ArtPiece[]> => {
 /**
  * Retrieve a single ArtPiece by its ID
  */
-export const getArtPieceById = async ({ id }: { id: string }): Promise<ArtPiece | null> => {
+export const getArtPieceById = async (id: string): Promise<ArtPiece | null> => {
+  try {
+    const { resources } = await artPiecesContainer.items
+    .query<RawArtPiece>({
+      query: "SELECT * FROM c WHERE c.id = @id",
+      parameters: [{ name: "@id", value: id }],
+    })
+    .fetchAll();
+  
+  const resource = resources[0];
+    if (!resource) return null;
+
+    const art = ArtPiece.from(resource);
+
+    if (resource.userId) {
+      const user = await userDb.getUserById({ id: resource.userId });
+      if (user) art.user = user;
+    }
+
+    return art;
+  } catch (err) {
+    console.error(`Error fetching ArtPiece by id ${id}:`, err);
+    throw new Error('Database error. See server log for details.');
+  }
+};
+
+
+/**
+ * Retrieve a single ArtPiece by its artist
+ */
+export const getArtPiecesByArtist = async (artist: string): Promise<ArtPiece[]> => {
     try {
-        const { resource } = await artPiecesContainer.item(id, id).read<RawArtPiece>();
-        if (!resource) return null;
-        const art = ArtPiece.from(resource);
-        const user = await userDb.getUserById({ id: resource.userId });
-        if (user) art.user = user;
-        return art;
+        const querySpec = {
+            query: 'SELECT * FROM c WHERE c.artist = @artist',
+            parameters: [{ name: '@artist', value: artist }],
+        };
+
+        const { resources } = await artPiecesContainer.items
+            .query<RawArtPiece>(querySpec)
+            .fetchAll();
+
+        const enriched = await Promise.all(
+            resources.map(async (resource) => {
+                const art = ArtPiece.from(resource);
+                const user = await userDb.getUserById({ id: resource.userId });
+                if (user) art.user = user;
+                return art;
+            })
+        );
+
+        return enriched;
     } catch (err) {
-        console.error(`Error fetching ArtPiece by id ${id}:`, err);
+        console.error(`Error fetching ArtPieces by artist ${artist}:`, err);
         throw new Error('Database error. See server log for details.');
     }
 };
+
 
 /**
  * List image filenames for an ArtPiece
@@ -117,6 +161,7 @@ const ArtPieceDb = {
     getAllArtPieces,
     getArtPieceById,
     getArtPieceImages,
+    getArtPiecesByArtist
 };
 
 export default ArtPieceDb;
