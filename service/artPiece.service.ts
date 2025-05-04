@@ -144,9 +144,23 @@ const getAllArtPieces = async () => {
     return artPieceDb.getAllArtPieces();
 };
 
+const getArtPiecesByArtist = async (artist : string) => {
+    const arts: ArtPiece[] | null = await artPieceDb.getArtPiecesByArtist(artist);
+    if (!arts) throw new Error(`there is no arts of "${artist}"`);
+    return arts;
+}
+
+const getArtById = async (id : string): Promise<ArtPiece | null> => {
+    const art: ArtPiece | null = await artPieceDb.getArtPieceById(id);
+    if (!art) throw new Error(`Product "${id}" does not exist.`);
+    return art;
+}
+
 const ArtPieceService = {
     registerArtPiece,
     getAllArtPieces,
+    getArtById,
+    getArtPiecesByArtist
 };
 
 export default ArtPieceService;

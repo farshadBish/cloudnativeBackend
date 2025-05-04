@@ -23,6 +23,8 @@ app.use(
     }).unless({
         path: [
             // '/user',
+            /^\/item\/(?!create$)[^/]+$/,
+            /^\/item\/artist\/[^/]+$/,
             '/item',
             '/api-docs',
             /^\/api-docs\/.*/,
