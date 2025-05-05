@@ -1,0 +1,31 @@
+{
+  "name": "functions",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "clean": "rimraf dist",
+    "prestart": "npm run clean && npm run build",
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "dependencies": {
+    "@azure/communication-email": "^1.0.0",
+    "@azure/cosmos": "^4.3.0",
+    "@azure/functions": "^4.7.0",
+    "@redis/client": "^5.0.0",
+    "@types/node": "^20.17.32",
+    "axios": "^1.9.0",
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.5.0",
+    "functions": "file:",
+    "jsonwebtoken": "^9.0.2",
+    "redis": "^5.0.0",
+    "rimraf": "^5.0.10",
+    "typescript": "^5.8.3",
+    "uuid": "^11.1.0"
+  },
+  "main": "dist/src/{index.js,functions/*.js}"
+}
