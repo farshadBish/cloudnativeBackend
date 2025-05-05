@@ -1,8 +1,9 @@
 import express, { NextFunction, Request, Response } from 'express';
 import ArtPieceService from '../service/artPiece.service';
-import { Role } from '../types';
+import { ArtPieceInput, Role } from '../types';
 import multer from 'multer';
 import path from 'path';
+import { ArtPiece } from '../model/artPiece';
 
 const artPieceRouter = express.Router();
 
@@ -77,6 +78,26 @@ artPieceRouter.get('/', async (req: Request, res: Response, next: NextFunction) 
         // const { username, role } = auth;
         const response = await ArtPieceService.getAllArtPieces();
         res.status(200).json(response);
+    } catch (error) {
+        next(error);
+    }
+});
+
+artPieceRouter.get('/:artId', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const art: ArtPiece | null = await ArtPieceService.getArtById(String(req.params.artId));
+        res.status(200).json(art);
+    } catch (error) {
+        next(error);
+    }
+});
+
+artPieceRouter.get('/artist/:name', async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const excludeId = String(req.query.exclude);
+        const arts: ArtPiece[] | null = await ArtPieceService.getArtPiecesByArtist(String(req.params.name));
+        const filtered = arts.filter(piece => piece.id !== excludeId);
+        res.status(200).json(filtered);
     } catch (error) {
         next(error);
     }
