@@ -51,7 +51,7 @@ export async function verifyUserAccount(
         const user = usersList.find((u) => u.verificationToken === verificationToken);
         if (!user) {
             return htmlResponse(
-                `<h1>Verification Error</h1><p>TEST TEST No user found with this token.</p>`,
+                `<h1>Verification Error</h1><p>No user found with this token.</p>`,
                 404
             );
         }
