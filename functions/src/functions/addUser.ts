@@ -43,7 +43,7 @@ export async function addUser(
     }
 
     const cacheKey = 'users:all';
-    const cacheTTL = 24 * 60 * 60; // 24 hours (high TTL)
+    const cacheTTL = 60;
 
     try {
         const redis = await getRedisClient();
