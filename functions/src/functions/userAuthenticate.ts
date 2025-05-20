@@ -125,6 +125,6 @@ export async function userAuthenticate(
 
 app.http('userAuthenticate', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: userAuthenticate,
 });
