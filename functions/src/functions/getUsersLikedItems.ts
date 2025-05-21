@@ -1,5 +1,4 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { getContainer } from '../../util/cosmosDBClient';
 
 import * as dotenv from 'dotenv';
 import { getRedisClient } from '../../util/redisClient';

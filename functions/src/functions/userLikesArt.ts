@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { getContainer } from '../../util/cosmosDBClient';
 
 import * as dotenv from 'dotenv';
+import { getRedisClient } from '../../util/redisClient';
 dotenv.config();
 
 export async function userLikesArt(
@@ -136,6 +137,17 @@ export async function userLikesArt(
         await artPiecesContainer.item(artPiece.id, artPiece.userId).replace(artPiece);
 
         context.log('Both documents updated successfully');
+
+        // --- REDIS CACHE UPDATE ---
+        try {
+            const redis = await getRedisClient();
+            const cacheKey = `userLikedItems:${userId}`;
+            // Update the cache with the latest likedArtPieces array
+            await redis.set(cacheKey, JSON.stringify(user.likedArtPieces));
+            context.log(`Redis cache updated for key: ${cacheKey}`);
+        } catch (redisErr) {
+            context.log(`Failed to update Redis cache: ${redisErr.message}`);
+        }
 
         // Return success response
         return {

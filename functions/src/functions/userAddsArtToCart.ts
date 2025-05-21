@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { getContainer } from '../../util/cosmosDBClient';
 
 import * as dotenv from 'dotenv';
+import { getRedisClient } from '../../util/redisClient';
 dotenv.config();
 
 export async function userAddsArtToCart(
@@ -140,6 +141,17 @@ export async function userAddsArtToCart(
         await artPiecesContainer.item(String(artPiece.id), artPiecePartitionKey).replace(artPiece);
 
         context.log('Both documents updated successfully');
+
+        // --- REDIS CACHE UPDATE ---
+        try {
+            const redis = await getRedisClient();
+            const cacheKey = `userCart:${userId}`;
+            // Update the cache with the latest cart array
+            await redis.set(cacheKey, JSON.stringify(user.cart));
+            context.log(`Redis cache updated for key: ${cacheKey}`);
+        } catch (redisErr) {
+            context.log(`Failed to update Redis cache: ${redisErr.message}`);
+        }
 
         // Return success response
         return {
