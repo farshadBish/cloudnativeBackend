@@ -1,196 +1,179 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getContainer } from '../../util/cosmosDBClient';
-
 import * as dotenv from 'dotenv';
 import { getRedisClient } from '../../util/redisClient';
+import { verifyJWT } from '../../util/verifyJWT';
+import { readHeader } from '../../util/readHeader';
+
 dotenv.config();
 
 export async function userAddsArtToCart(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    // Configuration from environment variables with proper names from .env
-
     const usersContainerId = 'Users';
     const artPiecesContainerId = 'ArtPieces';
 
-    let usersContainer;
-    let artPiecesContainer;
-
     try {
-        // Initialize containers if not already done
-        usersContainer = getContainer(usersContainerId);
-        artPiecesContainer = getContainer(artPiecesContainerId);
+        // 1) Authenticate: extract & verify JWT
+        const authHeader =
+            readHeader(request, 'Authorization') || request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return {
+                status: 401,
+                body: JSON.stringify({ error: 'Missing or malformed Authorization header' }),
+            };
+        }
 
-        const { userId, artPieceId } = (await request.json()) as {
+        const token = authHeader.slice('Bearer '.length);
+        let payload;
+        try {
+            payload = verifyJWT(token);
+        } catch (err: any) {
+            context.log('JWT verification failed:', err.message);
+            return {
+                status: 401,
+                body: JSON.stringify({ error: 'Invalid or expired token', details: err.message }),
+            };
+        }
+
+        // 2) Parse body
+        const { userId: requestedUserId, artPieceId } = (await request.json()) as {
             userId: number;
             artPieceId: number;
         };
-
-        context.log(
-            `Processing cart operation for userId: "${userId}", artPieceId: "${artPieceId}"`
-        );
-
-        // Validate required parameters
-        if (!userId || !artPieceId) {
+        if (!requestedUserId || !artPieceId) {
             return {
                 status: 400,
+                body: JSON.stringify({ error: 'Both userId and artPieceId are required' }),
+            };
+        }
+
+        // 3) Authorize: determine effective userId
+        const callerRole = payload.role as string;
+        const callerUserId = payload.userId || payload.sub;
+        if (!callerUserId) {
+            return { status: 401, body: JSON.stringify({ error: 'Token missing userId' }) };
+        }
+        const userId = callerRole === 'admin' ? requestedUserId : callerUserId;
+        if (callerRole !== 'admin' && requestedUserId !== callerUserId) {
+            context.log(`Non-admin (${callerUserId}) forced to own userId for cart.`);
+        }
+
+        context.log(
+            `Cart toggle for userId=${userId}, artPieceId=${artPieceId} (role=${callerRole})`
+        );
+
+        // 4) Init Cosmos containers
+        const usersContainer = getContainer(usersContainerId);
+        const artPiecesContainer = getContainer(artPiecesContainerId);
+
+        // 5) Load user
+        let user;
+        try {
+            const { resource } = await usersContainer.item(String(userId), String(userId)).read();
+            if (!resource) {
+                return {
+                    status: 404,
+                    body: JSON.stringify({ error: `User ${userId} not found` }),
+                };
+            }
+            user = resource;
+        } catch (err: any) {
+            context.log('Error fetching user:', err);
+            const status = err.code === 404 ? 404 : 500;
+            return {
+                status,
                 body: JSON.stringify({
-                    error: 'Missing required parameters: userId and artPieceId',
+                    error: status === 404 ? `User ${userId} not found` : 'Error reading user',
                 }),
             };
         }
 
-        // Get user document with proper error handling
-        let user;
-        try {
-            context.log(`Fetching user with ID: "${userId}"`);
-            const { resource: userResource } = await usersContainer.item(userId, userId).read();
-
-            if (!userResource) {
-                return {
-                    status: 404,
-                    body: JSON.stringify({ error: `User with ID ${userId} not found` }),
-                };
-            }
-
-            user = userResource;
-            context.log(`User document retrieved successfully: ${userId}`);
-        } catch (error) {
-            context.log(`Error fetching user: ${JSON.stringify(error)}`);
-            if (error.code === 404) {
-                return {
-                    status: 404,
-                    body: JSON.stringify({ error: `User with ID ${userId} not found` }),
-                };
-            }
-            throw error;
-        }
-
-        // Get art piece document with cross-partition query
+        // 6) Load artPiece (cross-partition query)
         let artPiece;
         try {
-            const querySpec = {
-                query: 'SELECT * FROM c WHERE c.id = @id',
-                parameters: [{ name: '@id', value: artPieceId }],
-            };
-
             const { resources } = await artPiecesContainer.items
-                .query(querySpec, {
-                    partitionKey: undefined, // Cross-partition query
-                })
+                .query(
+                    {
+                        query: 'SELECT * FROM c WHERE c.id = @id',
+                        parameters: [{ name: '@id', value: artPieceId }],
+                    },
+                    { partitionKey: undefined, maxItemCount: 1 }
+                )
                 .fetchAll();
-
-            if (!resources || resources.length === 0) {
+            if (!resources.length) {
                 return {
                     status: 404,
-                    body: JSON.stringify({ error: `Art piece with ID ${artPieceId} not found` }),
+                    body: JSON.stringify({ error: `Art piece ${artPieceId} not found` }),
                 };
             }
-
             artPiece = resources[0];
-            context.log(
-                `Art piece retrieved successfully: ${artPiece.id}, userId: ${artPiece.userId}`
-            );
-        } catch (error) {
-            context.log(`Error fetching art piece: ${JSON.stringify(error)}`);
-            throw error;
+        } catch (err) {
+            context.log('Error fetching art piece:', err);
+            throw err;
         }
 
-        // Initialize arrays if they don't exist
-        if (!user.cart) {
-            user.cart = [];
-        }
+        // 7) Toggle in cart
+        user.cart = user.cart || [];
+        artPiece.inCart = artPiece.inCart || [];
 
-        if (!artPiece.inCart) {
-            artPiece.inCart = [];
-        }
-
-        // Check if already in cart - toggle add/remove
-        const alreadyInCart = user.cart.includes(artPieceId);
-        let action;
-
-        if (alreadyInCart) {
-            // Remove from cart: Remove from both arrays
-            user.cart = user.cart.filter((id) => id !== artPieceId);
-            artPiece.inCart = artPiece.inCart.filter((id) => id !== userId);
+        const alreadyIn = user.cart.includes(artPieceId);
+        let action: 'added' | 'removed';
+        if (alreadyIn) {
+            user.cart = user.cart.filter((id: number) => id !== artPieceId);
+            artPiece.inCart = artPiece.inCart.filter((id: number) => id !== userId);
             action = 'removed';
-            context.log(`Art piece ${artPieceId} removed from user ${userId}'s cart`);
         } else {
-            // Add to cart: Add to both arrays
             user.cart.push(artPieceId);
             artPiece.inCart.push(userId);
             action = 'added';
-            context.log(`Art piece ${artPieceId} added to user ${userId}'s cart`);
         }
 
-        // Update timestamp
-        const timestamp = new Date().toISOString();
-        user.updatedAt = timestamp;
-        artPiece.updatedAt = timestamp;
+        const now = new Date().toISOString();
+        user.updatedAt = now;
+        artPiece.updatedAt = now;
 
-        // Update documents with proper partition keys
-        context.log('Updating user document...');
+        // 8) Persist updates
         await usersContainer.item(String(userId), String(userId)).replace(user);
+        await artPiecesContainer
+            .item(String(artPiece.id), String(artPiece.userId))
+            .replace(artPiece);
 
-        // Use the correct partition key (userId) for the art piece
-        const artPiecePartitionKey = String(artPiece.userId);
-        context.log(
-            `Updating art piece with ID: ${artPiece.id}, partition key: ${artPiecePartitionKey}`
-        );
-        await artPiecesContainer.item(String(artPiece.id), artPiecePartitionKey).replace(artPiece);
-
-        context.log('Both documents updated successfully');
-
-        // --- REDIS CACHE UPDATE ---
+        // 9) Refresh Redis cache
         try {
             const redis = await getRedisClient();
-            const cacheKey = `userCart:${userId}`;
-            // Update the cache with the latest cart array
-            await redis.set(cacheKey, JSON.stringify(user.cart));
-            context.log(`Redis cache updated for key: ${cacheKey}`);
-        } catch (redisErr) {
-            context.log(`Failed to update Redis cache: ${redisErr.message}`);
+            await redis.set(`userCart:${userId}`, JSON.stringify(user.cart));
+        } catch (redisErr: any) {
+            context.log('Redis update failed:', redisErr.message);
         }
 
-        // Return success response
+        // 10) Return
         return {
             status: 200,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 success: true,
-                action: action,
-                userId: userId,
-                artPieceId: artPieceId,
+                action,
+                userId,
+                artPieceId,
                 cartSize: user.cart.length,
-                artPieceInCartCount: artPiece.inCart.length,
+                inCartCount: artPiece.inCart.length,
             }),
-            headers: { 'Content-Type': 'application/json' },
         };
-    } catch (err) {
-        context.log(`Error processing cart operation: ${err.message}`);
-        context.log(err.stack);
-
-        let status = 500;
-        let message = 'Internal Server Error';
-
-        if (err.code === 429) {
-            status = 429;
-            message = 'Too many requests. Please try again later.';
-        } else if (err.code === 403) {
-            status = 403;
-            message = 'Authorization failed';
-        }
-
+    } catch (err: any) {
+        context.log('Unhandled error in cart toggle:', err);
+        const status = err.code === 429 ? 429 : 500;
         return {
-            status: status,
-            body: JSON.stringify({
-                error: message,
-                details: err.message,
-            }),
+            status,
             headers: {
                 'Content-Type': 'application/json',
-                'Retry-After': err.code === 429 ? '10' : undefined,
+                ...(status === 429 ? { 'Retry-After': '10' } : {}),
             },
+            body: JSON.stringify({
+                error: status === 429 ? 'Too many requests' : 'Internal Server Error',
+                details: err.message,
+            }),
         };
     }
 }

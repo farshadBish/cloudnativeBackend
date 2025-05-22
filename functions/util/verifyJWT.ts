@@ -1,23 +1,24 @@
+// util/verifyJWT.ts
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { JwtPayload } from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET;
-
 const jwt = require('jsonwebtoken');
 
-/**
- * Verifies a JWT token and returns its public payload fields if valid.
- * @param token The JWT token string to verify.
- * @returns The decoded payload if valid, or throws an error if invalid.
- */
+const JWT_SECRET = (process.env.JWT_SECRET || '').trim();
+if (!JWT_SECRET) {
+    throw new Error('Missing JWT_SECRET env var in verifyJWT');
+}
+
 export function verifyJWT(token: string): JwtPayload {
     try {
-        // jwt.verify throws if invalid or expired
-        const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
-        // Remove sensitive fields if needed (e.g., iat, exp can be kept or filtered)
-        // Return all public fields
-        return decoded;
+        return jwt.verify(token, JWT_SECRET, {
+            algorithms: ['HS256'],
+            clockTolerance: 2 * 60 * 60,
+            // // clockTolerance: 24 * 60 * 60,
+        }) as JwtPayload;
     } catch (err: any) {
-        // You can customize error handling here
-        throw new Error('Invalid or expired JWT token.');
+        // Let the caller see exactly which error happened
+        throw new Error(`${err.name}: ${err.message}`);
     }
 }
