@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getContainer } from '../../util/cosmosDBClient';
+import { getRedisClient } from '../../util/redisClient'; // <-- Add this import
 
 export async function addArtPiece(
     request: HttpRequest,
@@ -80,7 +81,20 @@ export async function addArtPiece(
 
         context.log(`User ${userId} updated with new art piece ID: ${id}`);
 
-        // 4) Return success response
+        // 4) Update Redis cache for artPieces:all
+        const cacheKey = 'artPieces:all';
+        const cacheTTL = 60; // 1 minute (adjust as needed)
+        try {
+            const redis = await getRedisClient();
+            // Fetch all art pieces from CosmosDB
+            const { resources: allArtPieces } = await artContainer.items.readAll().fetchAll();
+            await redis.set(cacheKey, JSON.stringify(allArtPieces), { EX: cacheTTL });
+            context.log('Updated artPieces:all cache with new art piece');
+        } catch (redisErr) {
+            context.log('Error updating artPieces:all cache:', redisErr);
+        }
+
+        // 5) Return success response
         return {
             status: 201,
             body: JSON.stringify({
@@ -103,6 +117,6 @@ export async function addArtPiece(
 
 app.http('addArtPiece', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: addArtPiece,
 });
