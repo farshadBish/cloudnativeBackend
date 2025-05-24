@@ -2,6 +2,9 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient'; // <-- Add this import
 
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 export async function addArtPiece(
     request: HttpRequest,
     context: InvocationContext

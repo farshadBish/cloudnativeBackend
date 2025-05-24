@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getContainer } from '../../util/cosmosDBClient';
-
+import * as dotenv from 'dotenv';
+dotenv.config();
 export async function userAuthenticate(
     request: HttpRequest,
     context: InvocationContext

@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-
+import * as dotenv from 'dotenv';
+dotenv.config();
 export async function verifyEmail(
     request: HttpRequest,
     context: InvocationContext

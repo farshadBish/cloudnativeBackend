@@ -1,7 +1,8 @@
 // util/cosmosDBClient.ts
 import { CosmosClient, Container, Database } from '@azure/cosmos';
 
-require('dotenv').config();
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 const endpoint = process.env.COSMOS_ENDPOINT;
 const key = process.env.COSMOS_KEY;
