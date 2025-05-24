@@ -7,7 +7,7 @@ export async function sendEmail(
     const { EmailClient, KnownEmailSendStatus } = require('@azure/communication-email');
 
     const connectionString = process.env.EMAIL_SERVICE_CONNECTION_STRING;
-    const senderAddress = 'DoNotReply@6f755f5e-aa52-40b5-9da4-bfdc612a94ec.azurecomm.net';
+    const senderAddress = 'DoNotReply@1eb6d9a4-e40d-4fe7-a440-6b76ada5cd60.azurecomm.net';
 
     interface EmailRequest {
         to: string;
