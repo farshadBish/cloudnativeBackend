@@ -45,7 +45,7 @@ export async function userAddsArtToCart(
         if (!artPieceId) {
             return {
                 status: 400,
-                body: JSON.stringify({ error: 'ArtPieceId are required' }),
+                body: JSON.stringify({ error: 'ArtPieceId is required' }),
             };
         }
 

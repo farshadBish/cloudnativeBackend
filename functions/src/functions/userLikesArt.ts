@@ -49,10 +49,10 @@ export async function userLikesArt(
         );
 
         // Validate required parameters
-        if (!requestedUserId || !artPieceId) {
+        if (!artPieceId) {
             return {
                 status: 400,
-                body: JSON.stringify({ error: 'Both userId and artPieceId are required' }),
+                body: JSON.stringify({ error: 'ArtPieceId is required' }),
             };
         }
 
