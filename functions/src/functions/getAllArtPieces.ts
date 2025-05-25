@@ -26,7 +26,7 @@ export async function getAllArtPieces(
             context.log('Cache hit');
             return {
                 status: 200,
-                body: JSON.stringify({ artPieces: JSON.parse(cached as string) }),
+                body: cached,
                 headers: { 'Content-Type': 'application/json' },
             };
         }
@@ -39,7 +39,7 @@ export async function getAllArtPieces(
         // 2) Return success response with all art pieces
 
         // 4) Store in Redis
-        await redis.setEx(cacheKey, cacheTTL, JSON.stringify(artPieces));
+        await redis.setEx(cacheKey, cacheTTL, JSON.stringify({ artPieces }));
         context.log(`Cached ${artPieces.length} artPieces for ${cacheTTL}s`);
 
         return {
