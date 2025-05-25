@@ -16,6 +16,7 @@
     "@azure/functions": "^4.7.0",
     "@azure/identity": "^4.9.1",
         "@azure/storage-blob": "^12.27.0",
+        "busboy": "^1.6.0",
         "blob": "^0.1.0",
     "@redis/client": "^5.0.0",
     "@types/node": "^20.17.32",

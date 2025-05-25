@@ -29,6 +29,7 @@
         "bcryptjs": "^2.4.3",
         "blob": "^0.1.0",
         "body-parser": "^1.20.1",
+        "busboy": "^1.6.0",
         "cors": "^2.8.0",
         "courses_api": "file:",
         "date-fns": "^2.30.0",
