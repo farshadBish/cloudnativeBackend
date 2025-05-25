@@ -42,10 +42,10 @@ export async function userAddsArtToCart(
             userId: number;
             artPieceId: number;
         };
-        if (!requestedUserId || !artPieceId) {
+        if (!artPieceId) {
             return {
                 status: 400,
-                body: JSON.stringify({ error: 'Both userId and artPieceId are required' }),
+                body: JSON.stringify({ error: 'ArtPieceId are required' }),
             };
         }
 
