@@ -3,14 +3,12 @@ import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient';
 import { verifyJWT } from '../../util/verifyJWT';
 import { readHeader } from '../../util/readHeader';
-import axios from 'axios';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
 /**
- * Processes a purchase transaction and sends order confirmation email.
- * Expects the front-end to supply all transaction details.
+ * Moves ownership of an art piece from seller to buyer using cross-partition query.
  */
 export async function UserBuysArtPiece(
     request: HttpRequest,
@@ -20,7 +18,7 @@ export async function UserBuysArtPiece(
     const artContainer = getContainer('ArtPieces');
 
     try {
-        // Authenticate
+        // 1) Authenticate
         const auth = readHeader(request, 'Authorization') || request.headers.get('authorization');
         if (!auth?.startsWith('Bearer ')) {
             return {
@@ -28,68 +26,53 @@ export async function UserBuysArtPiece(
                 body: JSON.stringify({ error: 'Missing or malformed Authorization header' }),
             };
         }
-        const token = auth.slice(7);
+        const token = auth.substring('Bearer '.length);
         let payload;
         try {
             payload = verifyJWT(token);
-        } catch (e: any) {
-            context.log('JWT error:', e);
+        } catch (err: any) {
+            context.log('JWT error:', err);
             return { status: 401, body: JSON.stringify({ error: 'Invalid or expired token' }) };
         }
-        const callerId = payload.userId || payload.sub;
-        if (!callerId) {
+
+        const buyerId = payload.userId || payload.sub;
+        if (!buyerId) {
             return { status: 401, body: JSON.stringify({ error: 'Token missing userId claim' }) };
         }
+        const isAdmin = payload.role === 'admin';
 
-        // Parse transaction details from body
-        const {
-            artPieceId,
-            buyerId,
-            sellerId,
-            subtotal,
-            shipping,
-            tax,
-            total,
-            paymentMethod,
-            orderDate,
-            estimatedDeliveryDate,
-        } = (await request.json()) as {
-            artPieceId: string;
-            buyerId: string;
-            sellerId: string;
-            subtotal: number;
-            shipping: number;
-            tax: number;
-            total: number;
-            paymentMethod: string;
-            orderDate: string;
-            estimatedDeliveryDate: string;
-        };
-        // Basic validation
-        if (!artPieceId || !buyerId || !sellerId) {
-            return {
-                status: 400,
-                body: JSON.stringify({ error: 'Missing required transaction fields' }),
-            };
-        }
-        if (buyerId !== callerId && payload.role !== 'admin') {
-            return { status: 403, body: JSON.stringify({ error: 'Not authorized as buyer' }) };
+        // 2) Parse and validate body
+        const { artPieceId } = (await request.json()) as { artPieceId: string };
+        if (!artPieceId) {
+            return { status: 400, body: JSON.stringify({ error: 'artPieceId is required' }) };
         }
 
-        // Load art piece metadata
+        // 3) Load art piece via cross-partition query
         const querySpec = {
             query: 'SELECT * FROM c WHERE c.id = @id',
             parameters: [{ name: '@id', value: artPieceId }],
         };
         const { resources } = await artContainer.items
-            .query(querySpec, { partitionKey: undefined })
+            .query(querySpec, { partitionKey: undefined, maxItemCount: 1 })
             .fetchAll();
         if (!resources.length) {
             return { status: 404, body: JSON.stringify({ error: 'Art piece not found' }) };
         }
         const artPiece = resources[0];
+        const sellerId = artPiece.userId;
+        if (!sellerId) {
+            return { status: 400, body: JSON.stringify({ error: 'Art piece missing owner' }) };
+        }
 
-        // Update ownership (same as earlier implementation)
+        // 4) Authorization: prevent self-purchase
+        if (!isAdmin && sellerId === buyerId) {
+            return {
+                status: 403,
+                body: JSON.stringify({ error: 'Cannot purchase your own art piece' }),
+            };
+        }
+
+        // 5) Load seller & buyer
         const [{ resource: seller }, { resource: buyer }] = await Promise.all([
             usersContainer.item(sellerId, sellerId).read(),
             usersContainer.item(buyerId, buyerId).read(),
@@ -97,27 +80,25 @@ export async function UserBuysArtPiece(
         if (!seller || !buyer) {
             return { status: 404, body: JSON.stringify({ error: 'Seller or buyer not found' }) };
         }
+
+        // 6) Update in-memory
         seller.createdPieces = (seller.createdPieces || []).filter(
             (id: string) => id !== artPieceId
         );
         buyer.createdPieces = Array.from(new Set([...(buyer.createdPieces || []), artPieceId]));
-
-        // remove artpieceid from buyer user's likedArtPieces array of ids and cart array of ids
-        buyer.likedArtPieces = (buyer.likedArtPieces || []).filter(
-            (id: string) => id !== artPieceId
-        );
-        buyer.cart = (buyer.cart || []).filter((id: string) => id !== artPieceId);
-
         artPiece.userId = buyerId;
         artPiece.updatedAt = new Date().toISOString();
 
-        // Persist updates
+        // 7) Persist users then art piece move
         await Promise.all([
             usersContainer.item(sellerId, sellerId).replace(seller),
             usersContainer.item(buyerId, buyerId).replace(buyer),
-            artContainer.item(artPieceId, sellerId).delete(),
-            artContainer.items.create(artPiece),
         ]);
+        // Delete old art doc under seller partition and recreate under buyer
+        await artContainer.item(artPieceId, sellerId).delete();
+        await artContainer.items.create(artPiece);
+
+        // 8) Invalidate caches (non-blocking)
         getRedisClient()
             .then((redis) =>
                 Promise.all([
@@ -125,12 +106,19 @@ export async function UserBuysArtPiece(
                     redis.del(`userCreatedPieces:${buyerId}`),
                 ])
             )
-            .catch((e) => context.log('Redis error:', e));
+            .catch((e) => context.log('Redis cache error:', e));
+
+        // 9) Send confirmation email
 
         return {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ success: true, artPieceId, buyerId, sellerId, total }),
+            body: JSON.stringify({
+                success: true,
+                artPieceId,
+                oldOwner: sellerId,
+                newOwner: buyerId,
+            }),
         };
     } catch (err: any) {
         context.log('Unhandled error:', err);
