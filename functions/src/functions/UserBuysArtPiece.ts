@@ -86,6 +86,13 @@ export async function UserBuysArtPiece(
             (id: string) => id !== artPieceId
         );
         buyer.createdPieces = Array.from(new Set([...(buyer.createdPieces || []), artPieceId]));
+
+        // remove artpieceid from buyer user's likedArtPieces array of ids and cart array of ids
+        buyer.likedArtPieces = (buyer.likedArtPieces || []).filter(
+            (id: string) => id !== artPieceId
+        );
+        buyer.cart = (buyer.cart || []).filter((id: string) => id !== artPieceId);
+
         artPiece.userId = buyerId;
         artPiece.updatedAt = new Date().toISOString();
 
@@ -98,14 +105,28 @@ export async function UserBuysArtPiece(
         await artContainer.item(artPieceId, sellerId).delete();
         await artContainer.items.create(artPiece);
 
-        // 8) Invalidate caches (non-blocking)
+        // 8) Invalidate and update caches (non-blocking)
         getRedisClient()
-            .then((redis) =>
-                Promise.all([
+            .then(async (redis) => {
+                // Invalidate old cache keys
+                await Promise.all([
                     redis.del(`userCreatedPieces:${sellerId}`),
                     redis.del(`userCreatedPieces:${buyerId}`),
-                ])
-            )
+                ]);
+                // Update userArtPieces cache keys for both users
+                await Promise.all([
+                    redis.set(
+                        `userArtPieces:${sellerId}`,
+                        JSON.stringify(seller.createdPieces ?? []),
+                        { EX: 3600 }
+                    ),
+                    redis.set(
+                        `userArtPieces:${buyerId}`,
+                        JSON.stringify(buyer.createdPieces ?? []),
+                        { EX: 3600 }
+                    ),
+                ]);
+            })
             .catch((e) => context.log('Redis cache error:', e));
 
         // 9) Send confirmation email

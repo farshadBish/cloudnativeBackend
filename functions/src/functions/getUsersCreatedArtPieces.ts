@@ -107,7 +107,7 @@ export async function getUsersCreatedArtPieces(
 
             createdPieces = user.createdPieces ?? [];
             // Cache for 1 hour
-            await redis.set(cacheKey, JSON.stringify(createdPieces), { EX: 3600 });
+            await redis.set(cacheKey, JSON.stringify(createdPieces), { EX: 60 });
             context.log(`Cached created art pieces under ${cacheKey}`);
         }
 
