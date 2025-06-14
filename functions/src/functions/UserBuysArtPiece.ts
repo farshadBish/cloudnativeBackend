@@ -483,7 +483,7 @@ export async function UserBuysArtPiece(
                                 <div class="art-artist">Artist Unknown</div>
                                 <div class="art-description">Details unavailable</div>
                             </div>
-                            <div class="art-price">$${(subtotals[index] / 100).toLocaleString(
+                            <div class="art-price">€${(subtotals[index] / 100).toLocaleString(
                                 'en-US',
                                 { minimumFractionDigits: 2 }
                             )}</div>
@@ -500,29 +500,29 @@ export async function UserBuysArtPiece(
                     .map(
                         (subtotal, index) => `
                     <div class="summary-row">
-                        <span class="summary-label">Art Piece ${index + 1}</span>
-                        <span class="summary-value">$${(subtotal / 100).toLocaleString('en-US', {
+                        <p class="summary-label">Art Piece ${index + 1}</p>
+                        <p class="summary-value">€${(subtotal / 100).toLocaleString('en-US', {
                             minimumFractionDigits: 2,
-                        })}</span>
+                        })}</p>
                     </div>
                 `
                     )
                     .join('')}
                 <div class="summary-row">
-                    <span class="summary-label">Tax</span>
-                    <span class="summary-value">$${(tax / 100).toLocaleString('en-US', {
+                    <p class="summary-label">Tax</p>
+                    <p class="summary-value">€${(tax / 100).toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</span>
+                    })}</p>
                 </div>
                 <div class="summary-row">
-                    <span class="summary-label">Shipping</span>
-                    <span class="summary-value">$${(shipping / 100).toLocaleString('en-US', {
+                    <p class="summary-label">Shipping</p>
+                    <p class="summary-value">€${(shipping / 100).toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</span>
+                    })}</p>
                 </div>
                 <div class="summary-row total-row">
-                    <span class="summary-label">Total</span>
-                    <span class="summary-value">$${(total / 100).toLocaleString('en-US', {
+                    <span class="summary-label">Total:</span>
+                    <span class="summary-value"> €${(total / 100).toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                     })}</span>
                 </div>
