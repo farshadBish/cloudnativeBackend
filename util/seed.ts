@@ -167,7 +167,7 @@ async function main() {
         {
             id: adminId,
             username: 'admin',
-            password: await bcrypt.hash('admin', 10),
+            passwordHash: await bcrypt.hash('admin', 10),
             firstName: 'admin',
             lastName: 'admin',
             email: 'administration@ucll.be',
@@ -181,7 +181,7 @@ async function main() {
         {
             id: leoId,
             username: 'Leonardo',
-            password: await bcrypt.hash('Leonardo', 10),
+            passwordHash: await bcrypt.hash('Leonardo', 10),
             firstName: 'Leonardo',
             lastName: 'da Vinci',
             email: 'r0966298@ucll.be',
