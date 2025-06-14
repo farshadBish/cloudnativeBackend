@@ -1,10 +1,9 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getContainer } from '../../util/cosmosDBClient';
-import * as dotenv from 'dotenv';
 import { getRedisClient } from '../../util/redisClient';
 import { verifyJWT } from '../../util/verifyJWT';
 import { readHeader } from '../../util/readHeader';
-
+import * as dotenv from 'dotenv';
 dotenv.config();
 
 /**
@@ -50,7 +49,16 @@ export async function UserBuysArtPiece(
         const { role } = payload;
 
         // 2) Parse & validate
+        // const { artPieceId } = await request.json();
+
+        /*
+        correct way:
+        const { title, description, artist, userId, price, tags, year, url } =
+        (await request.json()) as ArtPiece;
+        */
+
         const { artPieceId } = (await request.json()) as { artPieceId: string };
+
         if (typeof artPieceId !== 'string') {
             return { status: 400, body: JSON.stringify({ error: 'artPieceId must be a string' }) };
         }
