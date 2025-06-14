@@ -19,7 +19,7 @@ export async function verifyUserAccount(
     }
 
     const cacheKey = 'users:all';
-    const cacheTTL = 24 * 60 * 60; // 24h
+    const cacheTTL = 60; // 1min
     const redirectUrl = process.env.REDIRECT_URL || 'https://x.com';
     const countdownSeconds = 5;
 
@@ -73,16 +73,37 @@ export async function verifyUserAccount(
         }
 
         // Update DB and cache
+        // const container = getContainer('Users');
+        // const updated = {
+        //     ...user,
+        //     isVerified: true,
+        //     verificationToken: null,
+        //     verificationTokenExpires: null,
+        //     updatedAt: new Date().toISOString(),
+        // };
+        // await container.item(user.id, user.id).replace(updated);
+        // const updatedList = usersList.map((u) => (u.id === user.id ? updated : u));
+        // await redis.set(cacheKey, JSON.stringify(updatedList), { EX: cacheTTL });
+
+        // Fetch the full user document from CosmosDB to avoid overwriting other fields
         const container = getContainer('Users');
-        const updated = {
-            ...user,
-            isVerified: true,
-            verificationToken: null,
-            verificationTokenExpires: null,
-            updatedAt: new Date().toISOString(),
-        };
-        await container.item(user.id, user.id).replace(updated);
-        const updatedList = usersList.map((u) => (u.id === user.id ? updated : u));
+        const { resource: fullUser } = await container.item(user.id, user.id).read();
+        if (!fullUser) {
+            return htmlResponse(
+                `<h1>Verification Error</h1><p>User not found in database.</p>`,
+                404
+            );
+        }
+
+        // Only update the relevant fields
+        fullUser.isVerified = true;
+        fullUser.verificationToken = null;
+        fullUser.verificationTokenExpires = null;
+        fullUser.updatedAt = new Date().toISOString();
+
+        await container.item(user.id, user.id).replace(fullUser);
+        // Update the cache with the modified user
+        const updatedList = usersList.map((u) => (u.id === user.id ? fullUser : u));
         await redis.set(cacheKey, JSON.stringify(updatedList), { EX: cacheTTL });
 
         return htmlRedirect(

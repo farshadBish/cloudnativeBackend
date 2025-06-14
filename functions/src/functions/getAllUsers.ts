@@ -46,6 +46,7 @@ export async function getAllUsers(
             email: u.email,
             firstName: u.firstName,
             lastName: u.lastName,
+            passwordHash: u.passwordHash,
             role: u.role,
             likedArtPieces: u.likedArtPieces,
             cart: u.cart,
