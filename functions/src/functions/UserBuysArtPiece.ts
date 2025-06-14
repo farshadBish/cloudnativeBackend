@@ -8,13 +8,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * Moves ownership of an art piece from seller to buyer.
- * - Authenticated users may purchase (but cannot buy their own art).
- * - Admins may perform any transfer.
- *
- * Example POST /api/UserBuysArtPiece
- * Headers: Authorization: Bearer <token>
- * Body: { artPieceId: "<uuid>" }
+ * Moves ownership of an art piece from seller to buyer using cross-partition query.
  */
 export async function UserBuysArtPiece(
     request: HttpRequest,
@@ -25,9 +19,8 @@ export async function UserBuysArtPiece(
 
     try {
         // 1) Authenticate
-        const authHeader =
-            readHeader(request, 'Authorization') || request.headers.get('authorization');
-        if (!authHeader?.startsWith('Bearer ')) {
+        const auth = readHeader(request, 'Authorization') || request.headers.get('authorization');
+        if (!auth?.startsWith('Bearer ')) {
             return {
                 status: 401,
                 body: JSON.stringify({ error: 'Missing or malformed Authorization header' }),
@@ -38,7 +31,7 @@ export async function UserBuysArtPiece(
         try {
             payload = verifyJWT(token);
         } catch (err: any) {
-            context.log('JWT verification failed:', err.message);
+            context.log('JWT error:', err);
             return { status: 401, body: JSON.stringify({ error: 'Invalid or expired token' }) };
         }
 
@@ -54,11 +47,18 @@ export async function UserBuysArtPiece(
             return { status: 400, body: JSON.stringify({ error: 'artPieceId is required' }) };
         }
 
-        // 3) Load art piece
-        const { resource: artPiece } = await artContainer.item(artPieceId, undefined).read();
-        if (!artPiece) {
+        // 3) Load art piece via cross-partition query
+        const querySpec = {
+            query: 'SELECT * FROM c WHERE c.id = @id',
+            parameters: [{ name: '@id', value: artPieceId }],
+        };
+        const { resources } = await artContainer.items
+            .query(querySpec, { partitionKey: undefined, maxItemCount: 1 })
+            .fetchAll();
+        if (!resources.length) {
             return { status: 404, body: JSON.stringify({ error: 'Art piece not found' }) };
         }
+        const artPiece = resources[0];
         const sellerId = artPiece.userId;
         if (!sellerId) {
             return { status: 400, body: JSON.stringify({ error: 'Art piece missing owner' }) };
@@ -72,18 +72,16 @@ export async function UserBuysArtPiece(
             };
         }
 
-        // 5) Load seller and buyer
-        const [sellerRes, buyerRes] = await Promise.all([
+        // 5) Load seller & buyer
+        const [{ resource: seller }, { resource: buyer }] = await Promise.all([
             usersContainer.item(sellerId, sellerId).read(),
             usersContainer.item(buyerId, buyerId).read(),
         ]);
-        const seller = sellerRes.resource;
-        const buyer = buyerRes.resource;
         if (!seller || !buyer) {
             return { status: 404, body: JSON.stringify({ error: 'Seller or buyer not found' }) };
         }
 
-        // 6) Update in-memory arrays
+        // 6) Update in-memory
         seller.createdPieces = (seller.createdPieces || []).filter(
             (id: string) => id !== artPieceId
         );
@@ -91,13 +89,12 @@ export async function UserBuysArtPiece(
         artPiece.userId = buyerId;
         artPiece.updatedAt = new Date().toISOString();
 
-        // 7) Persist changes
-        // Replace users
+        // 7) Persist users then art piece move
         await Promise.all([
             usersContainer.item(sellerId, sellerId).replace(seller),
             usersContainer.item(buyerId, buyerId).replace(buyer),
         ]);
-        // Delete old art and recreate under new owner partition key
+        // Delete old art doc under seller partition and recreate under buyer
         await artContainer.item(artPieceId, sellerId).delete();
         await artContainer.items.create(artPiece);
 
@@ -111,7 +108,6 @@ export async function UserBuysArtPiece(
             )
             .catch((e) => context.log('Redis cache error:', e));
 
-        // 9) Respond
         return {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
