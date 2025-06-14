@@ -129,6 +129,25 @@ export async function UserBuysArtPiece(
             })
             .catch((e) => context.log('Redis cache error:', e));
 
+        // 8.A) Clear userCart cache for buyer
+
+        getRedisClient()
+            .then(async (redis) => {
+                // 8.A) Clear userCart cache for buyer
+                const cacheKey = `userCart:${buyerId}`;
+                await redis.del(cacheKey);
+            })
+            .catch((e) => context.log('Redis cache error:', e));
+
+        // 8.B) Clear userLikedItems cache for buyer
+        getRedisClient()
+            .then(async (redis) => {
+                // 8.B) Clear userLikedItems cache for buyer
+                const cacheKey = `userLikedItems:${buyerId}`;
+                await redis.del(cacheKey);
+            })
+            .catch((e) => context.log('Redis cache error:', e));
+
         // 9) Send confirmation email
 
         return {
