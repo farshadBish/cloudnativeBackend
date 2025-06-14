@@ -3,7 +3,6 @@ import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient';
 import { verifyJWT } from '../../util/verifyJWT';
 import { readHeader } from '../../util/readHeader';
-import axios from 'axios';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -59,6 +58,18 @@ export async function UserBuysArtPiece(
             orderDate: string;
             deliveryDate: string;
         };
+
+        // log every field for debugging
+        context.log('Request body:', {
+            artPieceIds,
+            subtotals,
+            tax,
+            shipping,
+            total,
+            orderDate,
+            deliveryDate,
+        });
+
         if (!Array.isArray(artPieceIds) || artPieceIds.length === 0) {
             return { status: 400, body: JSON.stringify({ error: 'artPieceId array is required' }) };
         }
@@ -150,7 +161,7 @@ export async function UserBuysArtPiece(
 
         // Send summary email
         try {
-            const sendEmailEndpoint = process.env.SEND_EMAIL_ENDPOINT!;
+            const sendEmailEndpoint = process.env.SEND_EMAIL_ENDPOINT;
             const itemsHtml = artPieces
                 .map(
                     (art, idx) =>
@@ -166,6 +177,18 @@ export async function UserBuysArtPiece(
                 .join(', ')}</p><p>Shipping: €${shipping.toFixed(2)}</p><p>Tax: €${tax.toFixed(
                 2
             )}</p><h2>Total: €${total.toFixed(2)}</h2>`;
+            context.log('Sending email to:', buyer.email);
+            context.log('Email content:', html);
+
+            if (!sendEmailEndpoint) {
+                context.log('No email endpoint configured, skipping email send');
+                return {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ success: true }),
+                };
+            }
+
             await fetch(sendEmailEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
