@@ -466,7 +466,7 @@ export async function UserBuysArtPiece(
                                 <div class="art-description">${artPiece.description}</div>
                                 <div class="art-year">${artPiece.year}</div>
                             </div>
-                            <div class="art-price">$${(subtotals[index] / 100).toLocaleString(
+                            <div class="art-price">€${(subtotals[index] / 100).toLocaleString(
                                 'en-US',
                                 { minimumFractionDigits: 2 }
                             )}</div>
