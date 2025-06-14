@@ -310,8 +310,10 @@ export async function UserBuysArtPiece(
         // }
 
         const url = process.env.SEND_EMAIL_ENDPOINT;
-        // post request to url
-        const response = await fetch(url, {
+
+        // const response = await fetch(url, {
+        // anonymous async function
+        await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -437,8 +439,14 @@ export async function UserBuysArtPiece(
         </body>
         </html>`,
             }),
-        });
-        const data = await response.json();
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Email service returned ${response.status}`);
+                }
+            })
+            .then(() => context.log('Email sent successfully'))
+            .catch((emailErr) => context.log('Error sending email:', emailErr));
 
         return {
             status: 200,
