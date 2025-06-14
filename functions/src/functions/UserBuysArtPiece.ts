@@ -4,6 +4,7 @@ import { getRedisClient } from '../../util/redisClient';
 import { verifyJWT } from '../../util/verifyJWT';
 import { readHeader } from '../../util/readHeader';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
 /**
@@ -14,8 +15,6 @@ dotenv.config();
  * Example POST /api/UserBuysArtPiece
  * Headers: Authorization: Bearer <token>
  * Body: { artPieceId: "<uuid>" }
- *
- * Only the buyer (or an admin) may invoke this endpoint.
  */
 export async function UserBuysArtPiece(
     request: HttpRequest,
@@ -25,124 +24,118 @@ export async function UserBuysArtPiece(
     const artContainer = getContainer('ArtPieces');
 
     try {
-        // 1) Authenticate: extract and verify the JWT
+        // 1) Authenticate
         const authHeader =
             readHeader(request, 'Authorization') || request.headers.get('authorization');
-        if (!authHeader) {
-            return { status: 401, body: `Missing Authorization header ${authHeader}` };
+        if (!authHeader?.startsWith('Bearer ')) {
+            return {
+                status: 401,
+                body: JSON.stringify({ error: 'Missing or malformed Authorization header' }),
+            };
         }
-        if (!authHeader.startsWith('Bearer ')) {
-            return { status: 401, body: `Malformed Authorization header ${authHeader}` };
-        }
-
         const token = authHeader.substring('Bearer '.length);
         let payload;
         try {
             payload = verifyJWT(token);
         } catch (err: any) {
             context.log('JWT verification failed:', err.message);
+            return { status: 401, body: JSON.stringify({ error: 'Invalid or expired token' }) };
+        }
+
+        const buyerId = payload.userId || payload.sub;
+        if (!buyerId) {
+            return { status: 401, body: JSON.stringify({ error: 'Token missing userId claim' }) };
+        }
+        const isAdmin = payload.role === 'admin';
+
+        // 2) Parse and validate body
+        const { artPieceId } = (await request.json()) as { artPieceId: string };
+        if (!artPieceId) {
+            return { status: 400, body: JSON.stringify({ error: 'artPieceId is required' }) };
+        }
+
+        // 3) Load art piece
+        const { resource: artPiece } = await artContainer.item(artPieceId, undefined).read();
+        if (!artPiece) {
+            return { status: 404, body: JSON.stringify({ error: 'Art piece not found' }) };
+        }
+        const sellerId = artPiece.userId;
+        if (!sellerId) {
+            return { status: 400, body: JSON.stringify({ error: 'Art piece missing owner' }) };
+        }
+
+        // 4) Authorization: prevent self-purchase
+        if (!isAdmin && sellerId === buyerId) {
             return {
-                status: 401,
-                body: `Invalid or expired token ${authHeader}: ${
-                    err.message
-                } currentTime=${new Date().toISOString()}`,
+                status: 403,
+                body: JSON.stringify({ error: 'Cannot purchase your own art piece' }),
             };
         }
 
-        // 2) Parse request body
-        const { artPieceId } = (await request.json()) as { artPieceId: string };
-        if (!artPieceId) {
-            return { status: 400, body: 'Missing artPieceId in request body' };
-        }
-
-        // 3) Authorize: determine the effective userId
-        const callerRole = payload.role;
-        const callerId = payload.userId || payload.sub;
-        if (!callerId) {
-            return { status: 401, body: 'Token missing' };
-        }
-
-        const userId = callerRole === 'admin' ? callerId : payload.userId;
-
-        if (callerRole !== 'admin' && userId === payload.userId) {
-            return { status: 403, body: 'You cannot buy your own art piece' };
-        }
-
-        // 4) Check if the art piece exists and is available for purchase
-        const artPiece = await artContainer.item(artPieceId).read();
-        if (!artPiece.resource) {
-            return { status: 404, body: `Art piece with ID ${artPieceId} not found` };
-        }
-
-        // 5) Perform the transfer
-        const sellerId = artPiece.resource.userId;
-        if (!sellerId) {
-            return { status: 404, body: `Seller not found for art piece ID ${artPieceId}` };
-        }
-        if (sellerId === userId) {
-            return { status: 403, body: 'You cannot buy your own art piece' };
-        }
-
-        // Add artpieceid to buyer's collection in "createdPieces" array and remove from seller
-        const buyerUpdate = await usersContainer.item(userId).patch([
-            {
-                op: 'add',
-                path: '/createdPieces',
-                value: [artPieceId],
-            },
+        // 5) Load seller and buyer
+        const [sellerRes, buyerRes] = await Promise.all([
+            usersContainer.item(sellerId, sellerId).read(),
+            usersContainer.item(buyerId, buyerId).read(),
         ]);
+        const seller = sellerRes.resource;
+        const buyer = buyerRes.resource;
+        if (!seller || !buyer) {
+            return { status: 404, body: JSON.stringify({ error: 'Seller or buyer not found' }) };
+        }
 
-        const sellerUpdate = await usersContainer.item(sellerId).patch([
-            {
-                op: 'remove',
-                path: '/createdPieces',
-                value: [artPieceId],
-            },
-        ]);
-
-        // Update artPiece's userId to the buyer
-        const artUpdate = await artContainer.item(artPieceId).replace({
-            ...artPiece.resource,
-            userId: userId,
-        });
-
-        context.log(
-            `Successfully transferred art piece ${artPieceId} from user ${sellerId} to user ${userId}`
+        // 6) Update in-memory arrays
+        seller.createdPieces = (seller.createdPieces || []).filter(
+            (id: string) => id !== artPieceId
         );
+        buyer.createdPieces = Array.from(new Set([...(buyer.createdPieces || []), artPieceId]));
+        artPiece.userId = buyerId;
+        artPiece.updatedAt = new Date().toISOString();
 
-        // try {
-        //     const redis = await getRedisClient();
-        //     const cacheKey = `userLikedItems:${userId}`;
-        //     await redis.set(cacheKey, JSON.stringify(user.likedArtPieces));
-        //     context.log(`Redis cache updated (${cacheKey})`);
-        // } catch (redisErr: any) {
-        //     context.log(`Redis update failed: ${redisErr.message}`);
-        // }
-        // Optionally update Redis cache
-        try {
-            const redis = await getRedisClient();
-            const cacheKey = `userCreatedPieces:${userId}`;
-            await redis.set(cacheKey, JSON.stringify(buyerUpdate.resource.createdPieces));
-            context.log(`Redis cache updated (${cacheKey})`);
-        } catch (redisErr: any) {
-            context.log(`Redis update failed: ${redisErr.message}`);
-        }
+        // 7) Persist changes
+        // Replace users
+        await Promise.all([
+            usersContainer.item(sellerId, sellerId).replace(seller),
+            usersContainer.item(buyerId, buyerId).replace(buyer),
+        ]);
+        // Delete old art and recreate under new owner partition key
+        await artContainer.item(artPieceId, sellerId).delete();
+        await artContainer.items.create(artPiece);
 
-        // 6) Return success response
+        // 8) Invalidate caches (non-blocking)
+        getRedisClient()
+            .then((redis) =>
+                Promise.all([
+                    redis.del(`userCreatedPieces:${sellerId}`),
+                    redis.del(`userCreatedPieces:${buyerId}`),
+                ])
+            )
+            .catch((e) => context.log('Redis cache error:', e));
+
+        // 9) Respond
         return {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 success: true,
-                message: `${sellerId}'s Art piece ${artPieceId} was successfully purchased by user ${userId}`,
                 artPieceId,
-                buyerId: userId,
-                sellerId,
+                oldOwner: sellerId,
+                newOwner: buyerId,
             }),
         };
-    } catch (error) {
-        context.log('Error during authentication:', error);
-        return { status: 500, body: error };
+    } catch (err: any) {
+        context.log('Unhandled error:', err);
+        const status = err.code === 429 ? 429 : 500;
+        return {
+            status,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(status === 429 ? { 'Retry-After': '10' } : {}),
+            },
+            body: JSON.stringify({
+                error: status === 429 ? 'Too many requests' : 'Internal Server Error',
+                details: err.message,
+            }),
+        };
     }
 }
 
@@ -151,5 +144,3 @@ app.http('UserBuysArtPiece', {
     authLevel: 'anonymous',
     handler: UserBuysArtPiece,
 });
-
-// Security: Only the authenticated buyer (token.userId) or an admin role may call this. Do NOT expose to anonymous users.
