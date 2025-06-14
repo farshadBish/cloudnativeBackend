@@ -444,6 +444,7 @@ export async function UserBuysArtPiece(
                 if (!response.ok) {
                     throw new Error(`Email service returned ${response.status}`);
                 }
+                return response.json();
             })
             .then(() => context.log('Email sent successfully'))
             .catch((emailErr) => context.log('Error sending email:', emailErr));
