@@ -161,153 +161,153 @@ export async function UserBuysArtPiece(
             .catch((e) => context.log('Redis cache error:', e));
 
         // Send summary email
-        // 6) Send summary email using axios instead of fetch
-        try {
-            const url = process.env.SEND_EMAIL_ENDPOINT;
-            // post request to url
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    to: buyer.email,
-                    subject: 'NIMAH - Order Confirmation',
-                    plainText: `Thank you for your order! Your order details are as follows: ABCDEFG`,
-                    html: `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Welcome to Our Community</title>
-            <style>
-                body {
-                    font-family: 'Georgia', serif;
-                    color: #6d5c44;
-                    line-height: 1.6;
-                    margin: 0;
-                    padding: 0;
-                    background-color: #faf7f2;
-                }
-                .email-container {
-                    max-width: 600px;
-                    margin: 0 auto;
-                    padding: 20px;
-                    background-color: #fff;
-                    border: 1px solid #e0d5c1;
-                }
-                .header {
-                    text-align: center;
-                    padding: 20px 0;
-                    border-bottom: 1px solid #e0d5c1;
-                }
-                .logo {
-                    font-size: 28px;
-                    color: #b39069;
-                    letter-spacing: 2px;
-                    font-weight: normal;
-                }
-                .tagline {
-                    font-size: 14px;
-                    color: #b39069;
-                    letter-spacing: 1px;
-                    margin-top: 5px;
-                }
-                .content {
-                    padding: 30px 20px;
-                    text-align: center;
-                }
-                h1 {
-                    color: #967259;
-                    font-size: 28px;
-                    font-weight: normal;
-                    margin-bottom: 20px;
-                }
-                p {
-                    color: #6d5c44;
-                    font-size: 16px;
-                    margin-bottom: 20px;
-                }
-                .button-container {
-                    text-align: center;
-                    margin: 35px 0;
-                }
-                /* Override default link styling for the button */
-                a.button, .button {
-                    display: inline-block;
-                    background-color: #c1a178;
-                    color: white !important;
-                    text-decoration: none !important;
-                    padding: 14px 40px;
-                    font-size: 16px;
-                    border-radius: 3px;
-                    transition: background-color 0.3s;
-                }
-                a.button:hover, .button:hover {
-                    background-color: #b39069;
-                }
-                .footer {
-                    text-align: center;
-                    padding: 20px;
-                    font-size: 13px;
-                    color: #a99780;
-                    border-top: 1px solid #e0d5c1;
-                }
-                .social-links {
-                    margin: 15px 0;
-                }
-                .social-links a {
-                    color: #b39069;
-                    margin: 0 10px;
-                    text-decoration: none;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="email-container">
-                <div class="header">
-                    <div class="logo">NIMAH</div>
-                    <div class="tagline">CURATED EXPERIENCE</div>
-                </div>
-                
-                <div class="content">
-                    <h1>Thank you for your order!</h1>
-                    <p>Your order details are as follows:</p>
-                    <p><strong>Art Piece IDs:</strong> ${artPieceIds.join(', ')}</p>
-                    <p><strong>Subtotals:</strong> ${subtotals.join(', ')}</p>
-                    <p><strong>Tax:</strong> ${tax}</p>
-                    <p><strong>Shipping:</strong> ${shipping}</p>
-                    <p><strong>Total:</strong> ${total}</p>
-                    <p><strong>Order Date:</strong> ${new Date(orderDate).toLocaleDateString()}</p>
-                    <p><strong>Estimated Delivery Date:</strong> ${new Date(
-                        deliveryDate
-                    ).toLocaleDateString()}</p>
-                    <p>We appreciate your support and hope you enjoy your new art pieces!</p>
-                    
-                    <div class="button-container">
-                        <a href="https://front-end-cloud-native-dueuf4arfsfkgebe.westeurope-01.azurewebsites.net/users-art" class="button">View your owned art pieces</a>
-                    </div>
-                    
-                    <p>If you didn't make an order, change your password immediately and contact your bank!</p>
-                </div>
-                
-                <div class="footer">
-                    <p>© 2025 Nimah Art Boutique. All rights reserved.</p>
-                    <div class="social-links">
-                        <a href="#">Instagram</a> | <a href="#">Facebook</a> | <a href="#">Twitter</a>
-                    </div>
-                    <p>You received this email because you signed up for our services.<br></p>
-                </div>
-            </div>
-        </body>
-        </html>`,
-                }),
-            });
-            const data = await response.json();
-            return data;
-        } catch (emailErr: any) {
-            context.log('Error sending email:', emailErr);
-        }
+        // // 6) Send summary email using axios instead of fetch
+        // try {
+        //     const url = process.env.SEND_EMAIL_ENDPOINT;
+        //     // post request to url
+        //     const response = await fetch(url, {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //         },
+        //         body: JSON.stringify({
+        //             to: buyer.email,
+        //             subject: 'NIMAH - Order Confirmation',
+        //             plainText: `Thank you for your order! Your order details are as follows: ABCDEFG`,
+        //             html: `<!DOCTYPE html>
+        // <html lang="en">
+        // <head>
+        //     <meta charset="UTF-8">
+        //     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        //     <title>Welcome to Our Community</title>
+        //     <style>
+        //         body {
+        //             font-family: 'Georgia', serif;
+        //             color: #6d5c44;
+        //             line-height: 1.6;
+        //             margin: 0;
+        //             padding: 0;
+        //             background-color: #faf7f2;
+        //         }
+        //         .email-container {
+        //             max-width: 600px;
+        //             margin: 0 auto;
+        //             padding: 20px;
+        //             background-color: #fff;
+        //             border: 1px solid #e0d5c1;
+        //         }
+        //         .header {
+        //             text-align: center;
+        //             padding: 20px 0;
+        //             border-bottom: 1px solid #e0d5c1;
+        //         }
+        //         .logo {
+        //             font-size: 28px;
+        //             color: #b39069;
+        //             letter-spacing: 2px;
+        //             font-weight: normal;
+        //         }
+        //         .tagline {
+        //             font-size: 14px;
+        //             color: #b39069;
+        //             letter-spacing: 1px;
+        //             margin-top: 5px;
+        //         }
+        //         .content {
+        //             padding: 30px 20px;
+        //             text-align: center;
+        //         }
+        //         h1 {
+        //             color: #967259;
+        //             font-size: 28px;
+        //             font-weight: normal;
+        //             margin-bottom: 20px;
+        //         }
+        //         p {
+        //             color: #6d5c44;
+        //             font-size: 16px;
+        //             margin-bottom: 20px;
+        //         }
+        //         .button-container {
+        //             text-align: center;
+        //             margin: 35px 0;
+        //         }
+        //         /* Override default link styling for the button */
+        //         a.button, .button {
+        //             display: inline-block;
+        //             background-color: #c1a178;
+        //             color: white !important;
+        //             text-decoration: none !important;
+        //             padding: 14px 40px;
+        //             font-size: 16px;
+        //             border-radius: 3px;
+        //             transition: background-color 0.3s;
+        //         }
+        //         a.button:hover, .button:hover {
+        //             background-color: #b39069;
+        //         }
+        //         .footer {
+        //             text-align: center;
+        //             padding: 20px;
+        //             font-size: 13px;
+        //             color: #a99780;
+        //             border-top: 1px solid #e0d5c1;
+        //         }
+        //         .social-links {
+        //             margin: 15px 0;
+        //         }
+        //         .social-links a {
+        //             color: #b39069;
+        //             margin: 0 10px;
+        //             text-decoration: none;
+        //         }
+        //     </style>
+        // </head>
+        // <body>
+        //     <div class="email-container">
+        //         <div class="header">
+        //             <div class="logo">NIMAH</div>
+        //             <div class="tagline">CURATED EXPERIENCE</div>
+        //         </div>
+
+        //         <div class="content">
+        //             <h1>Thank you for your order!</h1>
+        //             <p>Your order details are as follows:</p>
+        //             <p><strong>Art Piece IDs:</strong> ${artPieceIds.join(', ')}</p>
+        //             <p><strong>Subtotals:</strong> ${subtotals.join(', ')}</p>
+        //             <p><strong>Tax:</strong> ${tax}</p>
+        //             <p><strong>Shipping:</strong> ${shipping}</p>
+        //             <p><strong>Total:</strong> ${total}</p>
+        //             <p><strong>Order Date:</strong> ${new Date(orderDate).toLocaleDateString()}</p>
+        //             <p><strong>Estimated Delivery Date:</strong> ${new Date(
+        //                 deliveryDate
+        //             ).toLocaleDateString()}</p>
+        //             <p>We appreciate your support and hope you enjoy your new art pieces!</p>
+
+        //             <div class="button-container">
+        //                 <a href="https://front-end-cloud-native-dueuf4arfsfkgebe.westeurope-01.azurewebsites.net/users-art" class="button">View your owned art pieces</a>
+        //             </div>
+
+        //             <p>If you didn't make an order, change your password immediately and contact your bank!</p>
+        //         </div>
+
+        //         <div class="footer">
+        //             <p>© 2025 Nimah Art Boutique. All rights reserved.</p>
+        //             <div class="social-links">
+        //                 <a href="#">Instagram</a> | <a href="#">Facebook</a> | <a href="#">Twitter</a>
+        //             </div>
+        //             <p>You received this email because you signed up for our services.<br></p>
+        //         </div>
+        //     </div>
+        // </body>
+        // </html>`,
+        //         }),
+        //     });
+        //     const data = await response.json();
+        //     return data;
+        // } catch (emailErr: any) {
+        //     context.log('Error sending email:', emailErr);
+        // }
 
         return {
             status: 200,
