@@ -158,123 +158,65 @@ export async function UserBuysArtPiece(
             )
             .catch((e) => context.log('Redis cache error:', e));
 
-        // Create email content
-        const url = process.env.SEND_EMAIL_ENDPOINT;
-        const plainText = `
-Order Confirmation
+        // -----------------
 
-Your order on ${orderDate} is confirmed. Estimated delivery: ${deliveryDate}.
+        const { EmailClient, KnownEmailSendStatus } = require('@azure/communication-email');
 
-Items:
-${artPieces.map((art, idx) => `- ${art.title} (€${subtotals[idx].toFixed(2)})`).join('\n')}
+        const connectionString = process.env.EMAIL_SERVICE_CONNECTION_STRING;
+        const senderAddress = 'DoNotReply@1eb6d9a4-e40d-4fe7-a440-6b76ada5cd60.azurecomm.net';
 
-Subtotal: €${subtotals.reduce((a, b) => a + b, 0).toFixed(2)}
-Shipping: €${shipping.toFixed(2)}
-Tax: €${tax.toFixed(2)}
-Total: €${total.toFixed(2)}
-        `;
+        const subject = `Order Confirmation - ${artPieceIds.length} Art Piece(s) Purchased`;
+        const plainText = `Thank you for your purchase! You have successfully bought ${artPieceIds.length} art piece(s).`;
+        const html = `<p>Thank you for your purchase!</p><p>You have successfully bought ${artPieceIds.length} art piece(s).</p>`;
 
-        // Simplified HTML template
-        const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmation</title>
-    <style>
-        body { font-family: Georgia, serif; color: #6d5c44; line-height: 1.6; margin: 0; padding: 0; background-color: #faf7f2; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #fff; border: 1px solid #e0d5c1; }
-        .header { text-align: center; padding: 20px 0; border-bottom: 1px solid #e0d5c1; }
-        .logo { font-size: 28px; color: #b39069; letter-spacing: 2px; }
-        .content { padding: 30px 20px; }
-        h1 { color: #967259; font-size: 24px; margin-bottom: 20px; }
-        .order-details { background: #f9f6f1; padding: 15px; margin: 20px 0; border-radius: 5px; }
-        .button { display: inline-block; background-color: #c1a178; color: white; text-decoration: none; padding: 12px 30px; border-radius: 3px; margin: 20px 0; }
-        .footer { text-align: center; padding: 20px; font-size: 13px; color: #a99780; border-top: 1px solid #e0d5c1; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="logo">NIMAH</div>
-            <div style="font-size: 14px; color: #b39069; letter-spacing: 1px;">CURATED EXPERIENCE</div>
-        </div>
-        
-        <div class="content">
-            <h1>Order Confirmation</h1>
-            <p>Thank you for your order! We're preparing your items for shipment.</p>
-            
-            <div class="order-details">
-                <h3>Order Details</h3>
-                <p><strong>Order Date:</strong> ${orderDate}</p>
-                <p><strong>Estimated Delivery:</strong> ${deliveryDate}</p>
-                
-                <h4>Items:</h4>
-                ${artPieces
-                    .map((art, idx) => `<p>• ${art.title} - €${subtotals[idx].toFixed(2)}</p>`)
-                    .join('')}
-                
-                <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0d5c1;">
-                <p><strong>Subtotal:</strong> €${subtotals
-                    .reduce((a, b) => a + b, 0)
-                    .toFixed(2)}</p>
-                <p><strong>Shipping:</strong> €${shipping.toFixed(2)}</p>
-                <p><strong>Tax:</strong> €${tax.toFixed(2)}</p>
-                <p><strong>Total:</strong> €${total.toFixed(2)}</p>
-            </div>
-            
-            <a href="https://front-end-cloud-native-dueuf4arfsfkgebe.westeurope-01.azurewebsites.net/users-art" class="button">View My Art</a>
-        </div>
-        
-        <div class="footer">
-            <p>© 2025 Nimah Art Boutique. All rights reserved.</p>
-        </div>
-    </div>
-</body>
-</html>
-        `;
+        interface EmailRequest {
+            to: string;
+            subject: string;
+            plainText: string;
+            html: string;
+        }
 
-        // Log the email payload for debugging
-        const emailPayload = {
-            to: buyer.email,
-            subject: 'NIMAH - Order Confirmation',
-            plainText: plainText.trim(),
-            html: htmlContent.trim(),
+        const message = {
+            senderAddress,
+            recipients: {
+                to: [{ address: buyer.email }],
+            },
+            content: {
+                subject,
+                plainText,
+                html,
+            },
         };
 
-        context.log('Email payload:', {
-            to: emailPayload.to,
-            subject: emailPayload.subject,
-            plainTextLength: emailPayload.plainText.length,
-            htmlLength: emailPayload.html.length,
-        });
-
-        // Send email with better error handling
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(emailPayload),
-            });
+            const client = new EmailClient(connectionString);
+            const poller = await client.beginSend(message);
 
-            context.log('Email service response status:', response.status);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                context.log('Email service error response:', errorText);
-                throw new Error(`Email service returned ${response.status}: ${errorText}`);
+            const result = await poller.pollUntilDone();
+            if (result.status === KnownEmailSendStatus.Succeeded) {
+                context.log({
+                    status: 202,
+                    body: JSON.stringify({
+                        message: 'Email sent successfully',
+                        operationId: result.id,
+                        status: result.status,
+                    }),
+                });
+            } else {
+                throw new Error(`Email sending failed with status: ${result.status}`);
             }
-
-            const responseData = await response.json();
-            context.log('Email sent successfully:', responseData);
-        } catch (emailErr: any) {
-            context.log('Error sending email:', emailErr.message);
-            // Don't fail the entire transaction if email fails
-            context.log('Transaction completed but email notification failed');
+        } catch (error) {
+            console.error('Error sending email:', error);
+            return {
+                status: 500,
+                body: JSON.stringify({
+                    message: 'Error sending email',
+                    error: error.message,
+                }),
+            };
         }
+
+        // -----------------
 
         return {
             status: 200,
