@@ -26,7 +26,7 @@ export async function UserBuysArtPiece(
                 body: JSON.stringify({ error: 'Missing or malformed Authorization header' }),
             };
         }
-        const token = authHeader.substring('Bearer '.length);
+        const token = auth.substring('Bearer '.length);
         let payload;
         try {
             payload = verifyJWT(token);
