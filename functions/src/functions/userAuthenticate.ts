@@ -93,6 +93,7 @@ export async function userAuthenticate(
             token,
             username: user.username,
             role: user.role,
+            userId: user.id
         };
 
         context.log('Response body:', responseBody);
