@@ -285,7 +285,7 @@ export async function UserBuysArtPiece(
                     <p>We appreciate your support and hope you enjoy your new art pieces!</p>
                     
                     <div class="button-container">
-                        <a href="https://front-end-cloud-native-dueuf4arfsfkgebe.westeurope-01.azurewebsites.net/users-art" class="button">Verify Now</a>
+                        <a href="https://front-end-cloud-native-dueuf4arfsfkgebe.westeurope-01.azurewebsites.net/users-art" class="button">View your owned art pieces</a>
                     </div>
                     
                     <p>If you didn't make an order, change your password immediately and contact your bank!</p>
