@@ -90,6 +90,7 @@ export async function addArtPiece(
                     folderName: uuidv4(), // as before
                     likedBy: [],
                     inCart: [],
+                    publishOnMarket: true,
                     createdAt: timestamp,
                     updatedAt: timestamp,
                 };

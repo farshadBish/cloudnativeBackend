@@ -157,6 +157,7 @@ async function main() {
             tags: ['impressionism', 'nature'],
             year: 1916,
             url: 'https://www.artic.edu/iiif/2/3c27b499-af56-f0d5-93b5-a7f2f1ad5813/full/1686,/0/default.jpg',
+            publishOnMarket: true,
         },
     ];
 
@@ -189,6 +190,20 @@ async function main() {
             likedArtPieces: [] as string[],
             cart: [] as string[],
             createdPieces: rawArtPieces.map((piece) => piece.id),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+        },
+        {
+            id: uuidv4(),
+            username: 'zev',
+            passwordHash: await bcrypt.hash('zev', 10),
+            firstName: 'zev',
+            lastName: 'zev',
+            email: 'zevniwtit@gmail.com',
+            role: 'user',
+            likedArtPieces: [] as string[],
+            cart: [] as string[],
+            createdPieces: [] as string[],
             createdAt: timestamp,
             updatedAt: timestamp,
         },
