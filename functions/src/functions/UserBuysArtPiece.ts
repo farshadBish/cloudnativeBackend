@@ -4,6 +4,7 @@ import { getRedisClient } from '../../util/redisClient';
 import { verifyJWT } from '../../util/verifyJWT';
 import { readHeader } from '../../util/readHeader';
 import * as dotenv from 'dotenv';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -160,47 +161,40 @@ export async function UserBuysArtPiece(
             .catch((e) => context.log('Redis cache error:', e));
 
         // Send summary email
+        // 6) Send summary email using axios instead of fetch
         try {
-            const sendEmailEndpoint = process.env.SEND_EMAIL_ENDPOINT;
+            const endpoint = process.env.SEND_EMAIL_ENDPOINT;
+            if (!endpoint) throw new Error('SEND_EMAIL_ENDPOINT not set');
             const itemsHtml = artPieces
                 .map(
-                    (art, idx) =>
+                    (art: any, idx: number) =>
                         `<div><img src="${
                             art.url
-                        }" style="width:100px;height:100px;object-fit:cover;"/><p>${
+                        }" style="width:100px;height:100px;object-fit:cover;" /><p>${
                             art.title
                         } - €${subtotals[idx].toFixed(2)}</p></div>`
                 )
                 .join('');
-            const html = `<h1>Order Confirmation</h1><p>Your order on ${orderDate} is confirmed. Estimated delivery: ${deliveryDate}.</p><div>${itemsHtml}</div><p>Subtotal breakdown: ${subtotals
-                .map((s) => `€${s.toFixed(2)}`)
-                .join(', ')}</p><p>Shipping: €${shipping.toFixed(2)}</p><p>Tax: €${tax.toFixed(
-                2
-            )}</p><h2>Total: €${total.toFixed(2)}</h2>`;
+            const html = `
+        <h1>Order Confirmation</h1>
+        <p>Your order on ${orderDate} is confirmed.</p>
+        <p>Estimated delivery: ${deliveryDate}</p>
+        <div>${itemsHtml}</div>
+        <p>Shipping: €${shipping.toFixed(2)}</p>
+        <p>Tax: €${tax.toFixed(2)}</p>
+        <h2>Total: €${total.toFixed(2)}</h2>
+      `;
             context.log('Sending email to:', buyer.email);
             context.log('Email content:', html);
-
-            if (!sendEmailEndpoint) {
-                context.log('No email endpoint configured, skipping email send');
-                return {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ success: true }),
-                };
-            }
-
-            await fetch(sendEmailEndpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    to: buyer.email,
-                    subject: 'NIMAH Order Confirmation',
-                    html,
-                    plainText: `Order on ${orderDate}: total €${total.toFixed(2)}`,
-                }),
+            await axios.post(endpoint, {
+                to: buyer.email,
+                subject: 'NIMAH Order Confirmation',
+                html,
+                plainText: `Your order total €${total.toFixed(2)} on ${orderDate}`,
             });
+            context.log('Email sent successfully');
         } catch (e) {
-            context.log('Email error:', e);
+            context.log('Email error:', e.message || e);
         }
 
         return {
