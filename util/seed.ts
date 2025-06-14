@@ -46,6 +46,7 @@ async function main() {
             tags: ['portrait', 'renaissance'],
             year: 1503,
             url: 'http://cdn.britannica.com/24/189624-050-F3C5BAA9/Mona-Lisa-oil-wood-panel-Leonardo-da.jpg',
+            publishOnMarket: true,
         },
         // ... rest of art pieces ... you can keep existing list ...
         {
@@ -57,6 +58,7 @@ async function main() {
             tags: ['post-impressionism', 'night'],
             year: 1889,
             url: 'https://www.artble.com/imgs/e/d/4/45975/starry_night.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -67,6 +69,7 @@ async function main() {
             tags: ['surrealism', 'time'],
             year: 1931,
             url: 'https://upload.wikimedia.org/wikipedia/en/d/dd/The_Persistence_of_Memory.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -77,6 +80,7 @@ async function main() {
             tags: ['expressionism', 'emotion'],
             year: 1893,
             url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73_cm%2C_National_Gallery_of_Norway.jpg/800px-Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73_cm%2C_National_Gallery_of_Norway.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -87,6 +91,7 @@ async function main() {
             tags: ['baroque', 'portrait'],
             year: 1665,
             url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/1665_Girl_with_a_Pearl_Earring.jpg/800px-1665_Girl_with_a_Pearl_Earring.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -97,6 +102,7 @@ async function main() {
             tags: ['cubism', 'war', 'black and white'],
             year: 1937,
             url: 'https://historiek.net/wp-content/uploads-phistor1/2008/12/guernica-picasso.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -107,6 +113,7 @@ async function main() {
             tags: ['renaissance', 'mythology'],
             year: 1486,
             url: 'https://moaonline.org/wp-content/uploads/2020/10/birth-of-venus-photo-set_Page_1-1000x614.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -117,6 +124,7 @@ async function main() {
             tags: ['symbolism', 'love'],
             year: 1908,
             url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg/500px-The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -127,6 +135,7 @@ async function main() {
             tags: ['realism', 'american'],
             year: 1930,
             url: 'https://upload.wikimedia.org/wikipedia/commons/c/cc/Grant_Wood_-_American_Gothic_-_Google_Art_Project.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -137,6 +146,7 @@ async function main() {
             tags: ['baroque', 'royalty'],
             year: 1656,
             url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Diego_Vel%C3%A1zquez_Las_Meninas_Die_Hoffr%C3%A4ulein.jpg/960px-Diego_Vel%C3%A1zquez_Las_Meninas_Die_Hoffr%C3%A4ulein.jpg',
+            publishOnMarket: true,
         },
         {
             id: uuidv4(),
@@ -147,6 +157,7 @@ async function main() {
             tags: ['impressionism', 'nature'],
             year: 1916,
             url: 'https://www.artic.edu/iiif/2/3c27b499-af56-f0d5-93b5-a7f2f1ad5813/full/1686,/0/default.jpg',
+            publishOnMarket: true,
         },
     ];
 
@@ -157,7 +168,7 @@ async function main() {
         {
             id: adminId,
             username: 'admin',
-            password: await bcrypt.hash('admin', 10),
+            passwordHash: await bcrypt.hash('admin', 10),
             firstName: 'admin',
             lastName: 'admin',
             email: 'administration@ucll.be',
@@ -171,7 +182,7 @@ async function main() {
         {
             id: leoId,
             username: 'Leonardo',
-            password: await bcrypt.hash('Leonardo', 10),
+            passwordHash: await bcrypt.hash('Leonardo', 10),
             firstName: 'Leonardo',
             lastName: 'da Vinci',
             email: 'r0966298@ucll.be',
@@ -179,6 +190,20 @@ async function main() {
             likedArtPieces: [] as string[],
             cart: [] as string[],
             createdPieces: rawArtPieces.map((piece) => piece.id),
+            createdAt: timestamp,
+            updatedAt: timestamp,
+        },
+        {
+            id: uuidv4(),
+            username: 'zev',
+            passwordHash: await bcrypt.hash('zev', 10),
+            firstName: 'zev',
+            lastName: 'zev',
+            email: 'zevniwtit@gmail.com',
+            role: 'user',
+            likedArtPieces: [] as string[],
+            cart: [] as string[],
+            createdPieces: [] as string[],
             createdAt: timestamp,
             updatedAt: timestamp,
         },
