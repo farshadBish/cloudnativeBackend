@@ -244,6 +244,11 @@ async function main() {
     await redis.flushAll();
 
     console.log('Seeding complete.');
+
+    await redis.quit();
+    console.log('Redis client closed.');
+
+    console.log('Done!');
 }
 
 main().catch((err) => {
