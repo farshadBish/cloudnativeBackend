@@ -334,29 +334,31 @@ export async function UserBuysArtPiece(
             margin-bottom: 15px;
             text-align: center;
         }
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
+        .summary-item {
+            margin-bottom: 15px;
+            padding: 10px 0;
             border-bottom: 1px solid #e8e2d6;
         }
-        .summary-row:last-child {
+        .summary-item:last-child {
             border-bottom: none;
-            padding-top: 15px;
-            margin-top: 10px;
+            margin-top: 15px;
+            padding-top: 20px;
             border-top: 2px solid #d4c7b5;
         }
         .summary-label {
             color: #6d5c44;
             font-size: 14px;
+            margin-bottom: 5px;
+            display: block;
         }
         .summary-value {
             color: #6d5c44;
             font-size: 14px;
             font-weight: bold;
+            display: block;
         }
-        .total-row .summary-label,
-        .total-row .summary-value {
+        .total-item .summary-label,
+        .total-item .summary-value {
             font-size: 18px;
             color: #967259;
             font-weight: bold;
@@ -472,9 +474,9 @@ export async function UserBuysArtPiece(
                                 <div class="art-description">${artPiece.description}</div>
                                 <div class="art-year">${artPiece.year}</div>
                             </div>
-                            <div class="art-price">€${subtotals[index].toLocaleString('en-US', {
+                            <div class="art-price">${subtotals[index].toLocaleString('en-US', {
                                 minimumFractionDigits: 2,
-                            })}</div>
+                            })} €</div>
                         </div>
                         `;
                         } catch (error) {
@@ -488,9 +490,9 @@ export async function UserBuysArtPiece(
                                 <div class="art-artist">Artist Unknown</div>
                                 <div class="art-description">Details unavailable</div>
                             </div>
-                            <div class="art-price">€${subtotals[index].toLocaleString('en-US', {
+                            <div class="art-price">${subtotals[index].toLocaleString('en-US', {
                                 minimumFractionDigits: 2,
-                            })}</div>
+                            })} €</div>
                         </div>
                         `;
                         }
@@ -500,35 +502,56 @@ export async function UserBuysArtPiece(
 
             <div class="order-summary">
                 <h3 class="summary-title">Order Summary</h3>
-                ${subtotals
-                    .map(
-                        (subtotal, index) => `
-                    <div class="summary-row">
-                        <p class="summary-label">Art Piece ${index + 1}</p>
-                        <p class="summary-value">€${subtotal.toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                        })}</p>
-                    </div>
-                `
-                    )
-                    .join('')}
-                <div class="summary-row">
-                    <p class="summary-label">Tax</p>
-                    <p class="summary-value">€${tax.toLocaleString('en-US', {
+                ${await Promise.all(
+                    artPieceIds.map(async (artPieceId, index) => {
+                        try {
+                            const response = await fetch(
+                                `https://art-gallery-04-dzgcgshac3c4erbc.francecentral-01.azurewebsites.net/api/getArtPieceById?artPieceId=${artPieceId}`
+                            );
+                            const data = await response.json();
+                            const artPiece = data.artPiece;
+
+                            return `
+                        <div class="summary-item">
+                            <span class="summary-label">${artPiece.title} (Artpiece ${
+                                index + 1
+                            })</span>
+                            <span class="summary-value">${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })} €</span>
+                        </div>
+                        `;
+                        } catch (error) {
+                            return `
+                        <div class="summary-item">
+                            <span class="summary-label">Art Piece ${index + 1} (Artpiece ${
+                                index + 1
+                            })</span>
+                            <span class="summary-value">${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })} €</span>
+                        </div>
+                        `;
+                        }
+                    })
+                ).then((pieces) => pieces.join(''))}
+                <div class="summary-item">
+                    <span class="summary-label">Tax</span>
+                    <span class="summary-value">${tax.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</p>
+                    })} €</span>
                 </div>
-                <div class="summary-row">
-                    <p class="summary-label">Shipping</p>
-                    <p class="summary-value">€${shipping.toLocaleString('en-US', {
+                <div class="summary-item">
+                    <span class="summary-label">Shipping</span>
+                    <span class="summary-value">${shipping.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</p>
+                    })} €</span>
                 </div>
-                <div class="summary-row total-row">
-                    <span class="summary-label">Total:</span>
-                    <span class="summary-value"> €${total.toLocaleString('en-US', {
+                <div class="summary-item total-item">
+                    <span class="summary-label">Total</span>
+                    <span class="summary-value">${total.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</span>
+                    })} €</span>
                 </div>
             </div>
 
