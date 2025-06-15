@@ -11,21 +11,18 @@ dotenv.config();
 export async function getAllUsers(
     request: HttpRequest,
     context: InvocationContext
-): Promise<HttpResponseInit> {    try {
-        // Check if this is an internal call from other Azure Functions
-        const isInternalCall = request.headers.get('x-ms-client-principal-id') !== null;
-        
-        if (!isInternalCall) {
-            // If not internal, require JWT authentication
-            const authHeader = readHeader(request, 'Authorization') || request.headers.get('authorization');
-            
-            if (!authHeader || !authHeader.startsWith('Bearer ')) {
+): Promise<HttpResponseInit> {
+    try {
+        // Only check JWT if Authorization header is present
+        const authHeader = readHeader(request, 'Authorization') || request.headers.get('authorization');
+        if (authHeader) {
+            if (!authHeader.startsWith('Bearer ')) {
                 return {
                     status: 401,
-                    body: JSON.stringify({ error: 'Authentication required' }),
+                    body: JSON.stringify({ error: 'Malformed Authorization header' }),
                 };
             }
-
+            
             // Verify JWT and check admin role
             const token = authHeader.slice('Bearer '.length);
             try {
@@ -43,7 +40,11 @@ export async function getAllUsers(
                     body: JSON.stringify({ error: 'Invalid token' }),
                 };
             }
-        }// Get users from database with caching
+        }
+        // If no Authorization header, proceed with the request
+        // This allows access with function key
+        
+        // Get users from database with caching
         const containerId = 'Users';
         const container = getContainer(containerId);
         const cacheKey = 'users:all';
