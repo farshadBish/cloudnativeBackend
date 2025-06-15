@@ -71,6 +71,7 @@ export async function userAuthenticate(
                     username: user.username,
                     role: user.role,
                     userId: user.id,
+                    isVerified: user.isVerified,
                 },
                 jwtSecret,
                 { expiresIn: jwtExpiresIn }
@@ -93,7 +94,8 @@ export async function userAuthenticate(
             token,
             username: user.username,
             role: user.role,
-            userId: user.id
+            userId: user.id,
+            isVerified: user.isVerified,
         };
 
         context.log('Response body:', responseBody);
