@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { Container } from '@azure/cosmos';
 import { usersContainer, artPiecesContainer } from './database';
+import { getRedisClient } from '../functions/util/redisClient';
 
 // Purge all documents from the Users container (PK = id)
 async function purgeUsers(container: Container) {
@@ -45,7 +46,7 @@ async function main() {
             price: 1000000,
             tags: ['portrait', 'renaissance'],
             year: 1503,
-            url: 'http://cdn.britannica.com/24/189624-050-F3C5BAA9/Mona-Lisa-oil-wood-panel-Leonardo-da.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/Mona_Lisa.jpg',
             publishOnMarket: true,
         },
         // ... rest of art pieces ... you can keep existing list ...
@@ -57,7 +58,7 @@ async function main() {
             price: 950000,
             tags: ['post-impressionism', 'night'],
             year: 1889,
-            url: 'https://www.artble.com/imgs/e/d/4/45975/starry_night.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/starry_night.jpg',
             publishOnMarket: true,
         },
         {
@@ -68,7 +69,7 @@ async function main() {
             price: 870000,
             tags: ['surrealism', 'time'],
             year: 1931,
-            url: 'https://upload.wikimedia.org/wikipedia/en/d/dd/The_Persistence_of_Memory.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/The_Persistence_of_Memory.jpg',
             publishOnMarket: true,
         },
         {
@@ -79,7 +80,7 @@ async function main() {
             price: 820000,
             tags: ['expressionism', 'emotion'],
             year: 1893,
-            url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73_cm%2C_National_Gallery_of_Norway.jpg/800px-Edvard_Munch%2C_1893%2C_The_Scream%2C_oil%2C_tempera_and_pastel_on_cardboard%2C_91_x_73_cm%2C_National_Gallery_of_Norway.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/the_scream.jpg',
             publishOnMarket: true,
         },
         {
@@ -90,7 +91,7 @@ async function main() {
             price: 780000,
             tags: ['baroque', 'portrait'],
             year: 1665,
-            url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/1665_Girl_with_a_Pearl_Earring.jpg/800px-1665_Girl_with_a_Pearl_Earring.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/Girl_with_a_Pearl_Earring.jpg',
             publishOnMarket: true,
         },
         {
@@ -101,7 +102,7 @@ async function main() {
             price: 1200000,
             tags: ['cubism', 'war', 'black and white'],
             year: 1937,
-            url: 'https://historiek.net/wp-content/uploads-phistor1/2008/12/guernica-picasso.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/guernica.jpg',
             publishOnMarket: true,
         },
         {
@@ -112,7 +113,7 @@ async function main() {
             price: 1100000,
             tags: ['renaissance', 'mythology'],
             year: 1486,
-            url: 'https://moaonline.org/wp-content/uploads/2020/10/birth-of-venus-photo-set_Page_1-1000x614.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/birth-of-venus.jpg',
             publishOnMarket: true,
         },
         {
@@ -123,7 +124,7 @@ async function main() {
             price: 890000,
             tags: ['symbolism', 'love'],
             year: 1908,
-            url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg/500px-The_Kiss_-_Gustav_Klimt_-_Google_Cultural_Institute.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/The_Kiss.webp',
             publishOnMarket: true,
         },
         {
@@ -134,7 +135,7 @@ async function main() {
             price: 720000,
             tags: ['realism', 'american'],
             year: 1930,
-            url: 'https://upload.wikimedia.org/wikipedia/commons/c/cc/Grant_Wood_-_American_Gothic_-_Google_Art_Project.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/american_gothic.jpg',
             publishOnMarket: true,
         },
         {
@@ -145,7 +146,7 @@ async function main() {
             price: 1300000,
             tags: ['baroque', 'royalty'],
             year: 1656,
-            url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Diego_Vel%C3%A1zquez_Las_Meninas_Die_Hoffr%C3%A4ulein.jpg/960px-Diego_Vel%C3%A1zquez_Las_Meninas_Die_Hoffr%C3%A4ulein.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/Las_Meninas.jpg',
             publishOnMarket: true,
         },
         {
@@ -156,7 +157,7 @@ async function main() {
             price: 760000,
             tags: ['impressionism', 'nature'],
             year: 1916,
-            url: 'https://www.artic.edu/iiif/2/3c27b499-af56-f0d5-93b5-a7f2f1ad5813/full/1686,/0/default.jpg',
+            url: 'https://cloudnativeproject.blob.core.windows.net/image/monet.jpg',
             publishOnMarket: true,
         },
     ];
@@ -195,15 +196,18 @@ async function main() {
         },
         {
             id: uuidv4(),
-            username: 'zev',
-            passwordHash: await bcrypt.hash('zev', 10),
-            firstName: 'zev',
-            lastName: 'zev',
-            email: 'zevniwtit@gmail.com',
+            username: 'daniel',
+            passwordHash: await bcrypt.hash('123456789DANIEL', 10),
+            firstName: 'daniel',
+            lastName: 'doe',
+            email: 'danieljaurell@gmail.com',
             role: 'user',
-            likedArtPieces: [] as string[],
-            cart: [] as string[],
+            likedArtPieces: [rawArtPieces[0].id, rawArtPieces[1].id],
+            cart: [rawArtPieces[1].id],
             createdPieces: [] as string[],
+            isVerified: true,
+            verificationToken: null,
+            verificationTokenExpires: null,
             createdAt: timestamp,
             updatedAt: timestamp,
         },
@@ -235,7 +239,16 @@ async function main() {
     admin.cart.push(artDocs[0].id);
     await usersContainer.item(adminId, adminId).replace(admin);
 
+    // clear entire redis cache
+    const redis = await getRedisClient();
+    await redis.flushAll();
+
     console.log('Seeding complete.');
+
+    await redis.quit();
+    console.log('Redis client closed.');
+
+    console.log('Done!');
 }
 
 main().catch((err) => {

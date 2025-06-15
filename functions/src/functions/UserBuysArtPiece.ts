@@ -9,7 +9,7 @@ dotenv.config();
 
 /**
  * Processes bulk purchase transactions and sends order confirmation email.
- * Accepts arrays of artPieceIds and subtotals.
+ * Accepts arrays of artPieceIds and subtotals (in cents) and corrects to euros.
  */
 export async function UserBuysArtPiece(
     request: HttpRequest,
@@ -59,8 +59,7 @@ export async function UserBuysArtPiece(
             deliveryDate: string;
         };
 
-        // log every field for debugging
-        context.log('Request body:', {
+        context.log('Raw request body:', {
             artPieceIds,
             subtotals,
             tax,
@@ -70,10 +69,26 @@ export async function UserBuysArtPiece(
             deliveryDate,
         });
 
+        // Convert costs from cents to euros (divide by 100)
+        const correctedSubtotals = subtotals.map((s) => s);
+        const correctedTax = tax;
+        const correctedShipping = shipping;
+        const correctedTotal = total;
+
+        context.log('Corrected values:', {
+            correctedSubtotals,
+            correctedTax,
+            correctedShipping,
+            correctedTotal,
+        });
+
         if (!Array.isArray(artPieceIds) || artPieceIds.length === 0) {
             return { status: 400, body: JSON.stringify({ error: 'artPieceId array is required' }) };
         }
-        if (!Array.isArray(subtotals) || subtotals.length !== artPieceIds.length) {
+        if (
+            !Array.isArray(correctedSubtotals) ||
+            correctedSubtotals.length !== artPieceIds.length
+        ) {
             return {
                 status: 400,
                 body: JSON.stringify({ error: 'subtotal array must match artPieceId length' }),
@@ -116,7 +131,6 @@ export async function UserBuysArtPiece(
             if (sellerId === callerId && payload.role !== 'admin') {
                 return { status: 403, body: JSON.stringify({ error: 'Cannot purchase own art' }) };
             }
-            // Load seller if not yet
             if (!sellersMap[sellerId]) {
                 const sellerRes = await usersContainer.item(sellerId, sellerId).read();
                 sellersMap[sellerId] = sellerRes.resource;
@@ -127,7 +141,6 @@ export async function UserBuysArtPiece(
                     };
                 }
             }
-            // Update arrays in-memory
             sellersMap[sellerId].createdPieces =
                 sellersMap[sellerId].createdPieces?.filter((i: string) => i !== id) || [];
             buyer.createdPieces = Array.from(new Set([...(buyer.createdPieces || []), id]));
@@ -136,17 +149,14 @@ export async function UserBuysArtPiece(
             art.userId = callerId;
             art.updatedAt = new Date().toISOString();
 
-            // Persist per art: replace users and move doc
             await Promise.all([
                 usersContainer.item(sellerId, sellerId).replace(sellersMap[sellerId]),
                 artContainer.item(id, sellerId).delete(),
                 artContainer.items.create(art),
             ]);
         }
-        // Persist buyer after loop
         await usersContainer.item(callerId, callerId).replace(buyer);
 
-        // Invalidate caches
         getRedisClient()
             .then((redis) =>
                 Promise.all([
@@ -158,7 +168,7 @@ export async function UserBuysArtPiece(
             )
             .catch((e) => context.log('Redis cache error:', e));
 
-        // -----------------
+        // -------------- Email sending with corrected values --------------
 
         const { EmailClient, KnownEmailSendStatus } = require('@azure/communication-email');
 
@@ -324,29 +334,31 @@ export async function UserBuysArtPiece(
             margin-bottom: 15px;
             text-align: center;
         }
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
+        .summary-item {
+            margin-bottom: 15px;
+            padding: 10px 0;
             border-bottom: 1px solid #e8e2d6;
         }
-        .summary-row:last-child {
+        .summary-item:last-child {
             border-bottom: none;
-            padding-top: 15px;
-            margin-top: 10px;
+            margin-top: 15px;
+            padding-top: 20px;
             border-top: 2px solid #d4c7b5;
         }
         .summary-label {
             color: #6d5c44;
             font-size: 14px;
+            margin-bottom: 5px;
+            display: block;
         }
         .summary-value {
             color: #6d5c44;
             font-size: 14px;
             font-weight: bold;
+            display: block;
         }
-        .total-row .summary-label,
-        .total-row .summary-value {
+        .total-item .summary-label,
+        .total-item .summary-value {
             font-size: 18px;
             color: #967259;
             font-weight: bold;
@@ -438,11 +450,7 @@ export async function UserBuysArtPiece(
                 </div>
                 <div class="date-item">
                     <div class="date-label">Estimated Delivery</div>
-                    <div class="date-value">${new Date(deliveryDate).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                    })}</div>
+                    <div class="date-value">${deliveryDate}</div>
                 </div>
             </div>
 
@@ -466,10 +474,9 @@ export async function UserBuysArtPiece(
                                 <div class="art-description">${artPiece.description}</div>
                                 <div class="art-year">${artPiece.year}</div>
                             </div>
-                            <div class="art-price">€${(subtotals[index] / 100).toLocaleString(
-                                'en-US',
-                                { minimumFractionDigits: 2 }
-                            )}</div>
+                            <div class="art-price">${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })} €</div>
                         </div>
                         `;
                         } catch (error) {
@@ -483,10 +490,9 @@ export async function UserBuysArtPiece(
                                 <div class="art-artist">Artist Unknown</div>
                                 <div class="art-description">Details unavailable</div>
                             </div>
-                            <div class="art-price">€${(subtotals[index] / 100).toLocaleString(
-                                'en-US',
-                                { minimumFractionDigits: 2 }
-                            )}</div>
+                            <div class="art-price">${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })} €</div>
                         </div>
                         `;
                         }
@@ -496,35 +502,56 @@ export async function UserBuysArtPiece(
 
             <div class="order-summary">
                 <h3 class="summary-title">Order Summary</h3>
-                ${subtotals
-                    .map(
-                        (subtotal, index) => `
-                    <div class="summary-row">
-                        <p class="summary-label">Art Piece ${index + 1}</p>
-                        <p class="summary-value">€${(subtotal / 100).toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                        })}</p>
-                    </div>
-                `
-                    )
-                    .join('')}
-                <div class="summary-row">
-                    <p class="summary-label">Tax</p>
-                    <p class="summary-value">€${(tax / 100).toLocaleString('en-US', {
+                ${await Promise.all(
+                    artPieceIds.map(async (artPieceId, index) => {
+                        try {
+                            const response = await fetch(
+                                `https://art-gallery-04-dzgcgshac3c4erbc.francecentral-01.azurewebsites.net/api/getArtPieceById?artPieceId=${artPieceId}`
+                            );
+                            const data = await response.json();
+                            const artPiece = data.artPiece;
+
+                            return `
+                        <div class="summary-item">
+                            <span class="summary-label">${artPiece.title} (Artpiece ${
+                                index + 1
+                            })</span>
+                            <span class="summary-value">${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })} €</span>
+                        </div>
+                        `;
+                        } catch (error) {
+                            return `
+                        <div class="summary-item">
+                            <span class="summary-label">Art Piece ${index + 1} (Artpiece ${
+                                index + 1
+                            })</span>
+                            <span class="summary-value">${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })} €</span>
+                        </div>
+                        `;
+                        }
+                    })
+                ).then((pieces) => pieces.join(''))}
+                <div class="summary-item">
+                    <span class="summary-label">Tax</span>
+                    <span class="summary-value">${tax.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</p>
+                    })} €</span>
                 </div>
-                <div class="summary-row">
-                    <p class="summary-label">Shipping</p>
-                    <p class="summary-value">€${(shipping / 100).toLocaleString('en-US', {
+                <div class="summary-item">
+                    <span class="summary-label">Shipping</span>
+                    <span class="summary-value">${shipping.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</p>
+                    })} €</span>
                 </div>
-                <div class="summary-row total-row">
-                    <span class="summary-label">Total:</span>
-                    <span class="summary-value"> €${(total / 100).toLocaleString('en-US', {
+                <div class="summary-item total-item">
+                    <span class="summary-label">Total</span>
+                    <span class="summary-value">${total.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
-                    })}</span>
+                    })} €</span>
                 </div>
             </div>
 
@@ -597,8 +624,6 @@ export async function UserBuysArtPiece(
             };
         }
 
-        // -----------------
-
         return {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
@@ -622,152 +647,3 @@ app.http('UserBuysArtPiece', {
     authLevel: 'anonymous',
     handler: UserBuysArtPiece,
 });
-
-// Send summary email
-// // 6) Send summary email using axios instead of fetch
-// try {
-//     const url = process.env.SEND_EMAIL_ENDPOINT;
-//     // post request to url
-//     const response = await fetch(url, {
-//         method: 'POST',
-//         headers: {
-//             'Content-Type': 'application/json',
-//         },
-//         body: JSON.stringify({
-//             to: buyer.email,
-//             subject: 'NIMAH - Order Confirmation',
-//             plainText: `Thank you for your order! Your order details are as follows: ABCDEFG`,
-//             html: `<!DOCTYPE html>
-// <html lang="en">
-// <head>
-//     <meta charset="UTF-8">
-//     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//     <title>Welcome to Our Community</title>
-//     <style>
-//         body {
-//             font-family: 'Georgia', serif;
-//             color: #6d5c44;
-//             line-height: 1.6;
-//             margin: 0;
-//             padding: 0;
-//             background-color: #faf7f2;
-//         }
-//         .email-container {
-//             max-width: 600px;
-//             margin: 0 auto;
-//             padding: 20px;
-//             background-color: #fff;
-//             border: 1px solid #e0d5c1;
-//         }
-//         .header {
-//             text-align: center;
-//             padding: 20px 0;
-//             border-bottom: 1px solid #e0d5c1;
-//         }
-//         .logo {
-//             font-size: 28px;
-//             color: #b39069;
-//             letter-spacing: 2px;
-//             font-weight: normal;
-//         }
-//         .tagline {
-//             font-size: 14px;
-//             color: #b39069;
-//             letter-spacing: 1px;
-//             margin-top: 5px;
-//         }
-//         .content {
-//             padding: 30px 20px;
-//             text-align: center;
-//         }
-//         h1 {
-//             color: #967259;
-//             font-size: 28px;
-//             font-weight: normal;
-//             margin-bottom: 20px;
-//         }
-//         p {
-//             color: #6d5c44;
-//             font-size: 16px;
-//             margin-bottom: 20px;
-//         }
-//         .button-container {
-//             text-align: center;
-//             margin: 35px 0;
-//         }
-//         /* Override default link styling for the button */
-//         a.button, .button {
-//             display: inline-block;
-//             background-color: #c1a178;
-//             color: white !important;
-//             text-decoration: none !important;
-//             padding: 14px 40px;
-//             font-size: 16px;
-//             border-radius: 3px;
-//             transition: background-color 0.3s;
-//         }
-//         a.button:hover, .button:hover {
-//             background-color: #b39069;
-//         }
-//         .footer {
-//             text-align: center;
-//             padding: 20px;
-//             font-size: 13px;
-//             color: #a99780;
-//             border-top: 1px solid #e0d5c1;
-//         }
-//         .social-links {
-//             margin: 15px 0;
-//         }
-//         .social-links a {
-//             color: #b39069;
-//             margin: 0 10px;
-//             text-decoration: none;
-//         }
-//     </style>
-// </head>
-// <body>
-//     <div class="email-container">
-//         <div class="header">
-//             <div class="logo">NIMAH</div>
-//             <div class="tagline">CURATED EXPERIENCE</div>
-//         </div>
-
-//         <div class="content">
-//             <h1>Thank you for your order!</h1>
-//             <p>Your order details are as follows:</p>
-//             <p><strong>Art Piece IDs:</strong> ${artPieceIds.join(', ')}</p>
-//             <p><strong>Subtotals:</strong> ${subtotals.join(', ')}</p>
-//             <p><strong>Tax:</strong> ${tax}</p>
-//             <p><strong>Shipping:</strong> ${shipping}</p>
-//             <p><strong>Total:</strong> ${total}</p>
-//             <p><strong>Order Date:</strong> ${new Date(orderDate).toLocaleDateString()}</p>
-//             <p><strong>Estimated Delivery Date:</strong> ${new Date(
-//                 deliveryDate
-//             ).toLocaleDateString()}</p>
-//             <p>We appreciate your support and hope you enjoy your new art pieces!</p>
-
-//             <div class="button-container">
-//                 <a href="https://front-end-cloud-native-dueuf4arfsfkgebe.westeurope-01.azurewebsites.net/users-art" class="button">View your owned art pieces</a>
-//             </div>
-
-//             <p>If you didn't make an order, change your password immediately and contact your bank!</p>
-//         </div>
-
-//         <div class="footer">
-//             <p>© 2025 Nimah Art Boutique. All rights reserved.</p>
-//             <div class="social-links">
-//                 <a href="#">Instagram</a> | <a href="#">Facebook</a> | <a href="#">Twitter</a>
-//             </div>
-//             <p>You received this email because you signed up for our services.<br></p>
-//         </div>
-//     </div>
-// </body>
-// </html>`,
-//         }),
-//     });
-//     const data = await response.json();
-//     return data;
-// } catch (emailErr: any) {
-//     context.log('Error sending email:', emailErr);
-// }
