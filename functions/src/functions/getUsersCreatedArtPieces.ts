@@ -52,7 +52,7 @@ export async function getUsersCreatedArtPieces(
             };
         }
 
-        const userId = callerRole === 'admin' ? requestedUserId : callerUserId;
+        const userId = callerRole === 'admin' ? requestedUserId : requestedUserId;
         if (callerRole !== 'admin' && requestedUserId !== callerUserId) {
             context.log(
                 `Non-admin (${callerUserId}) tried to fetch art for ${requestedUserId}; using own ID.`
@@ -106,8 +106,8 @@ export async function getUsersCreatedArtPieces(
             }
 
             createdPieces = user.createdPieces ?? [];
-            // Cache for 1 hour
-            await redis.set(cacheKey, JSON.stringify(createdPieces), { EX: 3600 });
+            // Cache for 1 min
+            await redis.set(cacheKey, JSON.stringify(createdPieces), { EX: 60 });
             context.log(`Cached created art pieces under ${cacheKey}`);
         }
 
