@@ -13,13 +13,16 @@ export async function getAllUsers(
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     try {
-        // Only check JWT if Authorization header is present
-        const authHeader = readHeader(request, 'Authorization') || request.headers.get('authorization');
-        if (authHeader) {
-            if (!authHeader.startsWith('Bearer ')) {
+        // Check if function key is present in URL
+        const hasCodeParam = request.query.get('code') !== null;
+        
+        // If no function key, require JWT admin token
+        if (!hasCodeParam) {
+            const authHeader = readHeader(request, 'Authorization') || request.headers.get('authorization');
+            if (!authHeader || !authHeader.startsWith('Bearer ')) {
                 return {
                     status: 401,
-                    body: JSON.stringify({ error: 'Malformed Authorization header' }),
+                    body: JSON.stringify({ error: 'Authentication required' }),
                 };
             }
             
@@ -41,8 +44,7 @@ export async function getAllUsers(
                 };
             }
         }
-        // If no Authorization header, proceed with the request
-        // This allows access with function key
+        // If function key is present, allow access without JWT check
         
         // Get users from database with caching
         const containerId = 'Users';
