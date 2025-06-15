@@ -3,6 +3,7 @@ import { getContainer } from '../../util/cosmosDBClient';
 import * as dotenv from 'dotenv';
 import { verifyJWT } from '../../util/verifyJWT';
 import { readHeader } from '../../util/readHeader';
+import { getRedisClient } from '../../util/redisClient';
 
 dotenv.config();
 
@@ -94,7 +95,12 @@ export async function userTogglesPublishOfArtPiece(
             .replace(artPiece);
         context.log(`ArtPiece ${artPieceId} ${action} on market by user ${callerUserId}`);
 
-        // 8) Response
+        // 8) Update cache (if applicable)
+        const redis = await getRedisClient(); //flushAll reset entire redis
+        redis.flushAll(); // Clear all cache to ensure fresh data
+        context.log('Cache cleared after toggling publish status');
+
+        // 9) Response
         return {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
