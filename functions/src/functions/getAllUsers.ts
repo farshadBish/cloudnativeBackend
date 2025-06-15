@@ -104,6 +104,6 @@ export async function getAllUsers(
 
 app.http('getAllUsers', {
     methods: ['GET'],
-    authLevel: 'function', // This requires a function key for non-authenticated requests
+    authLevel: 'anonymous',  // Allow calls without function key
     handler: getAllUsers,
 });
