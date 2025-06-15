@@ -70,10 +70,10 @@ export async function UserBuysArtPiece(
         });
 
         // Convert costs from cents to euros (divide by 100)
-        const correctedSubtotals = subtotals.map((s) => s / 100);
-        const correctedTax = tax / 100;
-        const correctedShipping = shipping / 100;
-        const correctedTotal = total / 100;
+        const correctedSubtotals = subtotals.map((s) => s);
+        const correctedTax = tax;
+        const correctedShipping = shipping;
+        const correctedTotal = total;
 
         // Ensure deliveryDate includes year if missing
         let finalDeliveryDate = deliveryDate;
@@ -484,10 +484,9 @@ export async function UserBuysArtPiece(
                                 <div class="art-description">${artPiece.description}</div>
                                 <div class="art-year">${artPiece.year}</div>
                             </div>
-                            <div class="art-price">€${(subtotals[index] / 100).toLocaleString(
-                                'en-US',
-                                { minimumFractionDigits: 2 }
-                            )}</div>
+                            <div class="art-price">€${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })}</div>
                         </div>
                         `;
                         } catch (error) {
@@ -501,10 +500,9 @@ export async function UserBuysArtPiece(
                                 <div class="art-artist">Artist Unknown</div>
                                 <div class="art-description">Details unavailable</div>
                             </div>
-                            <div class="art-price">€${(subtotals[index] / 100).toLocaleString(
-                                'en-US',
-                                { minimumFractionDigits: 2 }
-                            )}</div>
+                            <div class="art-price">€${subtotals[index].toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            })}</div>
                         </div>
                         `;
                         }
@@ -519,7 +517,7 @@ export async function UserBuysArtPiece(
                         (subtotal, index) => `
                     <div class="summary-row">
                         <p class="summary-label">Art Piece ${index + 1}</p>
-                        <p class="summary-value">€${(subtotal / 100).toLocaleString('en-US', {
+                        <p class="summary-value">€${subtotal.toLocaleString('en-US', {
                             minimumFractionDigits: 2,
                         })}</p>
                     </div>
@@ -528,19 +526,19 @@ export async function UserBuysArtPiece(
                     .join('')}
                 <div class="summary-row">
                     <p class="summary-label">Tax</p>
-                    <p class="summary-value">€${(tax / 100).toLocaleString('en-US', {
+                    <p class="summary-value">€${tax.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                     })}</p>
                 </div>
                 <div class="summary-row">
                     <p class="summary-label">Shipping</p>
-                    <p class="summary-value">€${(shipping / 100).toLocaleString('en-US', {
+                    <p class="summary-value">€${shipping.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                     })}</p>
                 </div>
                 <div class="summary-row total-row">
                     <span class="summary-label">Total:</span>
-                    <span class="summary-value"> €${(total / 100).toLocaleString('en-US', {
+                    <span class="summary-value"> €${total.toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                     })}</span>
                 </div>
