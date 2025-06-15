@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { Container } from '@azure/cosmos';
 import { usersContainer, artPiecesContainer } from './database';
+import { getRedisClient } from '../functions/util/redisClient';
 
 // Purge all documents from the Users container (PK = id)
 async function purgeUsers(container: Container) {
@@ -234,6 +235,10 @@ async function main() {
     admin.likedArtPieces.push(artDocs[0].id);
     admin.cart.push(artDocs[0].id);
     await usersContainer.item(adminId, adminId).replace(admin);
+
+    // clear entire redis cache
+    const redis = await getRedisClient();
+    await redis.flushAll();
 
     console.log('Seeding complete.');
 }
