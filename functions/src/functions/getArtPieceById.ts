@@ -1,4 +1,3 @@
-// Function: getArtPieceById.ts
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient';
@@ -23,95 +22,59 @@ export async function getArtPieceById(
         };
     }
 
-    const artContainerId = 'ArtPieces';
     const cacheKey = `artPiece:${artPieceId}`;
-    const cacheTTL = 60; // 1 minute cache for individual items
+    const cacheTTL = 60; // seconds
 
     try {
         const redis = await getRedisClient();
 
-        // 1) Try Redis cache for the specific art piece
+        // 1) Try Redis cache
         const cached = await redis.get(cacheKey);
         if (cached) {
             context.log(`Cache hit for art piece ID: ${artPieceId}`);
             const artPiece = JSON.parse(cached as string);
-
             return {
                 status: 200,
-                body: JSON.stringify({ artPiece }),
                 headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ artPiece }),
             };
         }
 
         context.log(`Cache miss for art piece ID: ${artPieceId} — querying Cosmos DB`);
+        const artContainer = getContainer('ArtPieces');
 
-        // 2) Query Cosmos DB directly for the specific art piece
-        const artContainer = getContainer(artContainerId);
+        // 2) Always query by ID (no partition-key direct read)
+        const querySpec = {
+            query: 'SELECT * FROM c WHERE c.id = @id',
+            parameters: [{ name: '@id', value: artPieceId }],
+        };
 
-        try {
-            // Direct read by ID (most efficient)
-            const { resource: artPiece } = await artContainer.item(artPieceId, artPieceId).read();
+        const { resources: artPieces } = await artContainer.items
+            .query(querySpec, { partitionKey: undefined })
+            .fetchAll();
 
-            if (!artPiece) {
-                return {
-                    status: 404,
-                    body: JSON.stringify({
-                        status: 404,
-                        error: 'Not Found',
-                        message: `Art piece with ID ${artPieceId} not found`,
-                    }),
-                };
-            }
-
-            // 4) Cache the individual art piece
-            await redis.setEx(cacheKey, cacheTTL, JSON.stringify(artPiece));
-            context.log(`Cached art piece ${artPieceId} for ${cacheTTL}s`);
-
+        if (!artPieces || artPieces.length === 0) {
             return {
-                status: 200,
-                body: JSON.stringify({ artPiece }),
-                headers: { 'Content-Type': 'application/json' },
+                status: 404,
+                body: JSON.stringify({
+                    status: 404,
+                    error: 'Not Found',
+                    message: `Art piece with ID ${artPieceId} not found`,
+                }),
             };
-        } catch (cosmosError: any) {
-            // If direct read fails (item not found), try querying by ID
-            if (cosmosError.code === 404) {
-                context.log(`Direct read failed, trying query for ID: ${artPieceId}`);
-
-                const querySpec = {
-                    query: 'SELECT * FROM c WHERE c.id = @id',
-                    parameters: [{ name: '@id', value: artPieceId }],
-                };
-
-                const { resources: artPieces } = await artContainer.items
-                    .query(querySpec)
-                    .fetchAll();
-
-                if (artPieces.length === 0) {
-                    return {
-                        status: 404,
-                        body: JSON.stringify({
-                            status: 404,
-                            error: 'Not Found',
-                            message: `Art piece with ID ${artPieceId} not found or not available on market`,
-                        }),
-                    };
-                }
-
-                const artPiece = artPieces[0];
-
-                // Cache the found art piece
-                await redis.setEx(cacheKey, cacheTTL, JSON.stringify(artPiece));
-                context.log(`Cached art piece ${artPieceId} for ${cacheTTL}s`);
-
-                return {
-                    status: 200,
-                    body: JSON.stringify({ artPiece }),
-                    headers: { 'Content-Type': 'application/json' },
-                };
-            } else {
-                throw cosmosError; // Re-throw if it's not a 404 error
-            }
         }
+
+        const artPiece = artPieces[0];
+
+        // 3) Cache result
+        await redis.setEx(cacheKey, cacheTTL, JSON.stringify(artPiece));
+        context.log(`Cached art piece ${artPieceId} for ${cacheTTL}s`);
+
+        return {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artPiece }),
+        };
     } catch (err: any) {
         context.log('Error fetching art piece:', err);
         return {
