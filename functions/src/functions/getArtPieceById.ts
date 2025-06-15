@@ -1,5 +1,5 @@
-// Function: getArtPieceById.ts
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient';
 import * as dotenv from 'dotenv';
 
@@ -10,6 +10,7 @@ export async function getArtPieceById(
     context: InvocationContext
 ): Promise<HttpResponseInit> {
     const artPieceId = request.query.get('artPieceId');
+
     if (!artPieceId) {
         return {
             status: 400,
@@ -21,59 +22,38 @@ export async function getArtPieceById(
         };
     }
 
-    const cacheKey = 'artPieces:all';
+    const cacheKey = `artPiece:${artPieceId}`;
+    const cacheTTL = 60; // seconds
 
     try {
         const redis = await getRedisClient();
 
-        // Try Redis cache for full artPieces list
+        // 1) Try Redis cache
         const cached = await redis.get(cacheKey);
-        let allArtPieces: { artPieces: any[] };
-
-        if (typeof cached === 'string') {
-            context.log('Cache hit');
-            // Parse cached JSON
-            const parsed = JSON.parse(cached);
-            // Handle payload that might be an array or wrapped object
-            if (Array.isArray(parsed)) {
-                allArtPieces = { artPieces: parsed };
-            } else if (parsed.artPieces && Array.isArray(parsed.artPieces)) {
-                allArtPieces = parsed;
-            } else {
-                throw new Error('Cached payload has unexpected shape');
-            }
-        } else {
-            context.log('Cache miss — querying source');
-            const getAllArtPiecesUrl = process.env.GET_ALL_ART_PIECES_URL!;
-            const fetchRes = await fetch(getAllArtPiecesUrl, {
-                method: 'GET',
+        if (cached) {
+            context.log(`Cache hit for art piece ID: ${artPieceId}`);
+            const artPiece = JSON.parse(cached as string);
+            return {
+                status: 200,
                 headers: { 'Content-Type': 'application/json' },
-            });
-            if (!fetchRes.ok) {
-                context.log(`Failed to fetch art pieces: ${fetchRes.status}`);
-                return {
-                    status: 502,
-                    body: JSON.stringify({
-                        status: 502,
-                        error: 'Upstream fetch error',
-                        details: `Status ${fetchRes.status}`,
-                    }),
-                };
-            }
-            const fetched = await fetchRes.json();
-            // Validate fetched payload
-            if (!fetched.artPieces || !Array.isArray(fetched.artPieces)) {
-                throw new Error('Fetched payload has unexpected shape');
-            }
-            allArtPieces = fetched;
-            // Cache the full payload with TTL (e.g., 1 hour)
-            await redis.set(cacheKey, JSON.stringify(allArtPieces), { EX: 3600 });
-            context.log('Cached full artPieces list');
+                body: JSON.stringify({ artPiece }),
+            };
         }
 
-        // Now search for the requested art piece
-        const artPiece = allArtPieces.artPieces.find((piece) => piece.id === artPieceId);
-        if (!artPiece) {
+        context.log(`Cache miss for art piece ID: ${artPieceId} — querying Cosmos DB`);
+        const artContainer = getContainer('ArtPieces');
+
+        // 2) Always query by ID (no partition-key direct read)
+        const querySpec = {
+            query: 'SELECT * FROM c WHERE c.id = @id',
+            parameters: [{ name: '@id', value: artPieceId }],
+        };
+
+        const { resources: artPieces } = await artContainer.items
+            .query(querySpec, { partitionKey: undefined })
+            .fetchAll();
+
+        if (!artPieces || artPieces.length === 0) {
             return {
                 status: 404,
                 body: JSON.stringify({
@@ -84,8 +64,15 @@ export async function getArtPieceById(
             };
         }
 
+        const artPiece = artPieces[0];
+
+        // 3) Cache result
+        await redis.setEx(cacheKey, cacheTTL, JSON.stringify(artPiece));
+        context.log(`Cached art piece ${artPieceId} for ${cacheTTL}s`);
+
         return {
             status: 200,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ artPiece }),
         };
     } catch (err: any) {

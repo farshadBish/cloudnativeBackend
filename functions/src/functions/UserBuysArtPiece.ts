@@ -157,6 +157,22 @@ export async function UserBuysArtPiece(
         }
         await usersContainer.item(callerId, callerId).replace(buyer);
 
+        // set art piece publishOnMarket to false
+        await Promise.all(
+            artPieceIds.map((id) =>
+                artContainer
+                    .item(id, callerId)
+                    .read()
+                    .then((res) => {
+                        const art = res.resource;
+                        if (art) {
+                            art.publishOnMarket = false;
+                            return artContainer.item(id, callerId).replace(art);
+                        }
+                    })
+            )
+        );
+
         getRedisClient()
             .then((redis) =>
                 Promise.all([
