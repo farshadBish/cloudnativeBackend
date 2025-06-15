@@ -25,7 +25,7 @@ export async function getArtPieceById(
 
     const artContainerId = 'ArtPieces';
     const cacheKey = `artPiece:${artPieceId}`;
-    const cacheTTL = 300; // 5 minutes cache for individual items
+    const cacheTTL = 60; // 1 minute cache for individual items
 
     try {
         const redis = await getRedisClient();
@@ -36,18 +36,11 @@ export async function getArtPieceById(
             context.log(`Cache hit for art piece ID: ${artPieceId}`);
             const artPiece = JSON.parse(cached as string);
 
-            // Verify the cached item is still published on market
-            if (!artPiece.publishOnMarket) {
-                context.log(`Cached art piece ${artPieceId} is no longer published on market`);
-                // Remove from cache and continue to fetch from DB
-                await redis.del(cacheKey);
-            } else {
-                return {
-                    status: 200,
-                    body: JSON.stringify({ artPiece }),
-                    headers: { 'Content-Type': 'application/json' },
-                };
-            }
+            return {
+                status: 200,
+                body: JSON.stringify({ artPiece }),
+                headers: { 'Content-Type': 'application/json' },
+            };
         }
 
         context.log(`Cache miss for art piece ID: ${artPieceId} — querying Cosmos DB`);
@@ -66,18 +59,6 @@ export async function getArtPieceById(
                         status: 404,
                         error: 'Not Found',
                         message: `Art piece with ID ${artPieceId} not found`,
-                    }),
-                };
-            }
-
-            // 3) Check if the art piece is published on market
-            if (!artPiece.publishOnMarket) {
-                return {
-                    status: 404,
-                    body: JSON.stringify({
-                        status: 404,
-                        error: 'Not Found',
-                        message: `Art piece with ID ${artPieceId} is not available on the market`,
                     }),
                 };
             }
