@@ -34,9 +34,20 @@ export async function getAllArtPieces(
         context.log('Cache miss — querying Cosmos DB');
 
         // 1) Get all art pieces from Cosmos DB
-        const { resources: artPieces } = await artContainer.items.readAll().fetchAll();
+        let { resources: artPieces } = await artContainer.items.readAll().fetchAll();
 
-        // 2) Return success response with all art pieces
+        // 2) Only select artpieces where "publishOnMarket" attribute is true
+        const filteredArtPieces = artPieces.filter((artPiece) => artPiece.publishOnMarket);
+        if (filteredArtPieces.length === 0) {
+            context.log('No art pieces found with publishOnMarket = true');
+            return {
+                status: 404,
+                body: JSON.stringify({ error: 'No art pieces available' }),
+            };
+        }
+
+        artPieces = filteredArtPieces;
+        context.log(`Found ${artPieces.length} art pieces with publishOnMarket = true`);
 
         // 4) Store in Redis
         await redis.setEx(cacheKey, cacheTTL, JSON.stringify(artPieces));
