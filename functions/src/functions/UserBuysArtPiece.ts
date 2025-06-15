@@ -75,19 +75,11 @@ export async function UserBuysArtPiece(
         const correctedShipping = shipping;
         const correctedTotal = total;
 
-        // Ensure deliveryDate includes year if missing
-        let finalDeliveryDate = deliveryDate;
-        if (!/\d{4}/.test(deliveryDate)) {
-            const currentYear = new Date().getFullYear();
-            finalDeliveryDate = `${deliveryDate}, ${currentYear}`;
-        }
-
         context.log('Corrected values:', {
             correctedSubtotals,
             correctedTax,
             correctedShipping,
             correctedTotal,
-            finalDeliveryDate,
         });
 
         if (!Array.isArray(artPieceIds) || artPieceIds.length === 0) {
@@ -456,11 +448,7 @@ export async function UserBuysArtPiece(
                 </div>
                 <div class="date-item">
                     <div class="date-label">Estimated Delivery</div>
-                    <div class="date-value">${new Date(deliveryDate).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                    })}</div>
+                    <div class="date-value">${deliveryDate}</div>
                 </div>
             </div>
 
