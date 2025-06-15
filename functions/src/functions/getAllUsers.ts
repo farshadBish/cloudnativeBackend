@@ -2,6 +2,8 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getRedisClient } from '../../util/redisClient';
 import { getContainer } from '../../util/cosmosDBClient';
+import { verifyJWT } from '../../util/verifyJWT';
+import { readHeader } from '../../util/readHeader';
 
 import * as dotenv from 'dotenv';
 dotenv.config();
@@ -10,15 +12,43 @@ export async function getAllUsers(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
-    // Cosmos setup (you could extract this similarly if you like)
-    const containerId = 'Users';
-    const container = getContainer(containerId);
+    try {
+        // 1) Authenticate: extract & verify JWT
+        const authHeader = 
+            readHeader(request, 'Authorization') || request.headers.get('authorization');
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return {
+                status: 401,
+                body: JSON.stringify({ error: 'Missing or malformed Authorization header' }),
+            };
+        }
+
+        const token = authHeader.slice('Bearer '.length);
+        let payload: any;
+        try {
+            payload = verifyJWT(token);
+        } catch (err: any) {
+            context.log('JWT verification failed:', err.message);
+            return {
+                status: 401,
+                body: JSON.stringify({ error: 'Invalid token' }),
+            };
+        }
+
+        // 2) Check if user is admin
+        if (payload.role !== 'admin') {
+            return {
+                status: 403,
+                body: JSON.stringify({ error: 'Access forbidden. Admin role required.' }),
+            };
+        }
+
+        // Cosmos setup
+        const containerId = 'Users';
+        const container = getContainer(containerId);
 
     const cacheKey = 'users:all';
-    const cacheTTL = 60;
-
-    try {
-        const redis = await getRedisClient();
+    const cacheTTL = 60;        const redis = await getRedisClient();
 
         // 1) Try Redis cache
         const cached = await redis.get(cacheKey);
@@ -67,6 +97,7 @@ export async function getAllUsers(
             body: JSON.stringify({ users: safeUsers }),
             headers: { 'Content-Type': 'application/json' },
         };
+
     } catch (err: any) {
         context.log('Error retrieving users:', err);
         return {
@@ -79,6 +110,7 @@ export async function getAllUsers(
             }),
         };
     }
+
 }
 
 app.http('getAllUsers', {
