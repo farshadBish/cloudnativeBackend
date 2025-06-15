@@ -96,8 +96,8 @@ export async function userTogglesPublishOfArtPiece(
         context.log(`ArtPiece ${artPieceId} ${action} on market by user ${callerUserId}`);
 
         // 8) Update cache (if applicable)
-        const redis = await getRedisClient(); //flushAll reset entire redis
-        redis.flushAll(); // Clear all cache to ensure fresh data
+        const redis = await getRedisClient();
+        await redis.flushAll(); // Await the promise to ensure the operation completes
         context.log('Cache cleared after toggling publish status');
 
         // 9) Response
