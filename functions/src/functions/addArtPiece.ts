@@ -1,5 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getContainer } from '../../util/cosmosDBClient';
+import { getRedisClient } from '../../util/redisClient';
 
 export async function addArtPiece(
     request: HttpRequest,
@@ -79,6 +80,14 @@ export async function addArtPiece(
         await userContainer.items.upsert(user); // Upsert to ensure the user document is updated
 
         context.log(`User ${userId} updated with new art piece ID: ${id}`);
+
+        const redis = await getRedisClient();
+        const cacheKeyOne = `userArtPieces:${userId}`;
+        const cacheKeyTwo = 'artPieces:all';
+
+        // clear caches
+        await redis.del(cacheKeyOne);
+        await redis.del(cacheKeyTwo);
 
         // 4) Return success response
         return {
