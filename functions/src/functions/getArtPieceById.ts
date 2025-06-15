@@ -97,7 +97,7 @@ export async function getArtPieceById(
                 context.log(`Direct read failed, trying query for ID: ${artPieceId}`);
 
                 const querySpec = {
-                    query: 'SELECT * FROM c WHERE c.id = @id AND c.publishOnMarket = true',
+                    query: 'SELECT * FROM c WHERE c.id = @id',
                     parameters: [{ name: '@id', value: artPieceId }],
                 };
 
