@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient';
+import { verifyJWT } from '../../util/verifyJWT';
 
 import * as dotenv from 'dotenv';
 dotenv.config();
@@ -20,8 +21,23 @@ export async function getAllArtPieces(
     try {
         const redis = await getRedisClient();
 
-        // 1) Try Redis cache
-        const cached = await redis.get(cacheKey);
+        // Get auth header and check if user is admin
+        const authHeader = request.headers.get('authorization');
+        let isAdmin = false;
+        
+        if (authHeader) {
+            try {
+                const decodedToken = await verifyJWT(authHeader);
+                isAdmin = decodedToken.role === 'admin';
+            } catch (error) {
+                // If token verification fails, treat as non-admin user
+                isAdmin = false;
+            }
+        }
+
+        // 1) Try Redis cache - use different keys for admin and non-admin views
+        const cacheKeyWithRole = isAdmin ? `${cacheKey}:admin` : cacheKey;
+        const cached = await redis.get(cacheKeyWithRole);
         if (cached) {
             context.log('Cache hit');
             return {
@@ -36,21 +52,24 @@ export async function getAllArtPieces(
         // 1) Get all art pieces from Cosmos DB
         let { resources: artPieces } = await artContainer.items.readAll().fetchAll();
 
-        // 2) Only select artpieces where "publishOnMarket" attribute is true
-        const filteredArtPieces = artPieces.filter((artPiece) => artPiece.publishOnMarket);
-        if (filteredArtPieces.length === 0) {
-            context.log('No art pieces found with publishOnMarket = true');
+        // 2) Only filter for non-admin users
+        if (!isAdmin) {
+            // Filter out unpublished art pieces for non-admin users
+            artPieces = artPieces.filter((artPiece) => artPiece.publishOnMarket);
+        }
+
+        if (artPieces.length === 0) {
+            context.log(isAdmin ? 'No art pieces found' : 'No art pieces found with publishOnMarket = true');
             return {
                 status: 404,
                 body: JSON.stringify({ error: 'No art pieces available' }),
             };
         }
 
-        artPieces = filteredArtPieces;
-        context.log(`Found ${artPieces.length} art pieces with publishOnMarket = true`);
+        context.log(`Found ${artPieces.length} art pieces${!isAdmin ? ' with publishOnMarket = true' : ''}`);
 
         // 4) Store in Redis
-        await redis.setEx(cacheKey, cacheTTL, JSON.stringify(artPieces));
+        await redis.setEx(cacheKeyWithRole, cacheTTL, JSON.stringify(artPieces));
         context.log(`Cached ${artPieces.length} artPieces for ${cacheTTL}s`);
 
         return {
