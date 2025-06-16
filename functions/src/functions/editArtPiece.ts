@@ -20,6 +20,8 @@ export async function editArtPiece(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    const artPiecesContainerId = 'ArtPieces';
+
     try {
         context.log('Received edit art piece request');
         context.log('Full request URL:', request.url);
@@ -27,15 +29,15 @@ export async function editArtPiece(
 
         // 1) Authenticate: extract & verify JWT
         const authHeader = readHeader(request, 'Authorization') || request.headers.get('authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return {
-                status: 401,
-                body: JSON.stringify({ error: 'Missing or malformed Authorization header' }),
-            };
+        if (!authHeader) {
+            return { status: 401, body: JSON.stringify({ error: 'Missing Authorization header' }) };
+        }
+        if (!authHeader.startsWith('Bearer ')) {
+            return { status: 401, body: JSON.stringify({ error: 'Malformed Authorization header' }) };
         }
 
-        const token = authHeader.slice('Bearer '.length);
-        let payload: any;
+        const token = authHeader.substring('Bearer '.length);
+        let payload;
         try {
             payload = verifyJWT(token);
             context.log('JWT verified successfully, role:', payload.role);
@@ -43,7 +45,7 @@ export async function editArtPiece(
             context.log('JWT verification failed:', err.message);
             return {
                 status: 401,
-                body: JSON.stringify({ error: 'Invalid token' }),
+                body: JSON.stringify({ error: 'Invalid or expired token' }),
             };
         }
 
@@ -55,27 +57,17 @@ export async function editArtPiece(
             };
         }
 
-        // 3) Get art piece ID and update data
+        // 3) Get art piece ID from query parameter
         const artPieceId = request.query.get('artPieceId');
-        const updateData = await request.json() as ArtPieceUpdate;
-        
-        context.log('Request parameters:', {
-            artPieceId,
-            queryParams: Object.fromEntries(request.query),
-            updateData
-        });
-        
         if (!artPieceId) {
             return {
                 status: 400,
-                body: JSON.stringify({ 
-                    error: 'Art piece ID is required',
-                    requestUrl: request.url,
-                    queryParams: Object.fromEntries(request.query)
-                }),
+                body: JSON.stringify({ error: 'Art piece ID is required' }),
             };
         }
 
+        // 4) Get update data
+        const updateData = await request.json() as ArtPieceUpdate;
         if (!updateData || Object.keys(updateData).length === 0) {
             return {
                 status: 400,
@@ -93,92 +85,72 @@ export async function editArtPiece(
             };
         }
 
-        // 4) Get art piece from Cosmos DB
-        const artContainer = getContainer('ArtPieces');
+        // 5) Initialize container and fetch art piece
+        const artPiecesContainer = getContainer(artPiecesContainerId);
         
+        let artPiece;
         try {
-            context.log('Attempting to read art piece:', artPieceId);
-            const { resource: existingArtPiece } = await artContainer.item(artPieceId, artPieceId).read();
-            
-            if (!existingArtPiece) {
-                context.log('Art piece not found:', artPieceId);
+            const querySpec = {
+                query: 'SELECT * FROM c WHERE c.id = @id',
+                parameters: [{ name: '@id', value: artPieceId }],
+            };
+            const { resources } = await artPiecesContainer.items
+                .query(querySpec, { partitionKey: undefined, maxItemCount: 1 })
+                .fetchAll();
+
+            if (!resources.length) {
                 return {
                     status: 404,
-                    body: JSON.stringify({ 
-                        error: 'Art piece not found',
-                        artPieceId,
-                        requestUrl: request.url
-                    }),
+                    body: JSON.stringify({ error: `ArtPiece ${artPieceId} not found` }),
                 };
             }
-
-            context.log('Found existing art piece:', {
-                id: existingArtPiece.id,
-                title: existingArtPiece.title
-            });
-
-            // 5) Update the art piece
-            const updatedArtPiece = {
-                ...existingArtPiece,
-                ...updateData,
-                updatedAt: new Date().toISOString()
-            };
-
-            context.log('Saving updated art piece');
-            await artContainer.item(artPieceId, artPieceId).replace(updatedArtPiece);
-
-            // 6) Clear Redis cache
-            const redis = await getRedisClient();
-            await redis.del('artPieces:all');
-            await redis.del('artPieces:all:admin');
-
-            context.log('Art piece updated successfully:', artPieceId);
-
-            return {
-                status: 200,
-                body: JSON.stringify({
-                    message: 'Art piece updated successfully',
-                    artPiece: updatedArtPiece
-                }),
-            };
-
-        } catch (error: any) {
-            context.log('Error during database operation:', {
-                artPieceId,
-                error: error.message,
-                code: error.code,
-                stack: error.stack
-            });
-
-            if (error.code === 404) {
-                return {
-                    status: 404,
-                    body: JSON.stringify({ 
-                        error: 'Art piece not found',
-                        details: `No art piece found with ID: ${artPieceId}`,
-                        requestUrl: request.url
-                    }),
-                };
-            }
-
-            return {
-                status: 500,
-                body: JSON.stringify({ 
-                    error: 'Failed to update art piece',
-                    details: error.message,
-                    code: error.code
-                }),
-            };
+            artPiece = resources[0];
+            context.log('Found art piece:', { id: artPiece.id, title: artPiece.title });
+        } catch (err: any) {
+            context.log('Error fetching art piece:', err);
+            throw err;
         }
 
-    } catch (err: any) {
-        context.log('Unexpected error:', err);
+        // 6) Update the art piece
+        const updatedArtPiece = {
+            ...artPiece,
+            ...updateData,
+            updatedAt: new Date().toISOString()
+        };
+
+        // 7) Save to Cosmos DB
+        await artPiecesContainer
+            .item(String(artPiece.id), String(artPiece.userId))
+            .replace(updatedArtPiece);
+        
+        context.log(`Art piece ${artPieceId} updated successfully`);
+
+        // 8) Clear Redis cache
+        const redis = await getRedisClient();
+        await redis.flushAll();
+        context.log('Cache cleared after updating art piece');
+
         return {
-            status: 500,
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                error: 'Internal server error',
-                details: err.message
+                success: true,
+                message: 'Art piece updated successfully',
+                artPiece: updatedArtPiece
             }),
+        };
+
+    } catch (err: any) {
+        context.log('Error in editArtPiece:', err);
+        const status = err.code === 429 ? 429 : 500;
+        const message = err.code === 429 ? 'Too many requests' : 'Internal Server Error';
+        return {
+            status,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(status === 429 ? { 'Retry-After': '10' } : {}),
+            },
+            body: JSON.stringify({ error: message, details: err.message }),
         };
     }
 }
