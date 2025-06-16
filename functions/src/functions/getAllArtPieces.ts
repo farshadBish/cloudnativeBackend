@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient';
 import { verifyJWT } from '../../util/verifyJWT';
+import { readHeader } from '../../util/readHeader';
 
 import * as dotenv from 'dotenv';
 dotenv.config();
@@ -20,18 +21,21 @@ export async function getAllArtPieces(
 
     try {
         const redis = await getRedisClient();
-
-        // Get auth header and check if user is admin
-        const authHeader = request.headers.get('authorization');
         let isAdmin = false;
-        
-        if (authHeader) {
+
+        // Check for admin authorization
+        const authHeader = readHeader(request, 'Authorization') || request.headers.get('authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.slice('Bearer '.length);
             try {
-                const decodedToken = await verifyJWT(authHeader);
-                isAdmin = decodedToken.role === 'admin';
-            } catch (error) {
-                // If token verification fails, treat as non-admin user
-                isAdmin = false;
+                const payload = verifyJWT(token);
+                if (payload.role === 'admin') {
+                    isAdmin = true;
+                    context.log('Admin access granted');
+                }
+            } catch (err: any) {
+                context.log('JWT verification failed:', err.message);
+                // Continue as non-admin if token is invalid
             }
         }
 
@@ -56,6 +60,7 @@ export async function getAllArtPieces(
         if (!isAdmin) {
             // Filter out unpublished art pieces for non-admin users
             artPieces = artPieces.filter((artPiece) => artPiece.publishOnMarket);
+            context.log('Filtering art pieces for non-admin view');
         }
 
         if (artPieces.length === 0) {
