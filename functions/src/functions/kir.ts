@@ -2,7 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { getContainer } from '../../util/cosmosDBClient';
 import { getRedisClient } from '../../util/redisClient';
 
-export async function addArtPiece(
+export async function kir(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
@@ -110,8 +110,8 @@ export async function addArtPiece(
     }
 }
 
-app.http('addArtPiece', {
+app.http('kir', {
     methods: ['POST'],
     authLevel: 'function',
-    handler: addArtPiece,
+    handler: kir,
 });
