@@ -7,8 +7,8 @@ dotenv.config();
 // const cacheHostName = process.env.AZURE_CACHE_FOR_REDIS_HOST_NAME;
 // const cachePassword = process.env.AZURE_CACHE_FOR_REDIS_ACCESS_KEY;
 
-const cacheHostName = 'artGallery.redis.cache.windows.net';
-const cachePassword = 'aWDt89GvrMERbNHDCDzqCjHWioAJ8N39RAzCaDAH8CM=';
+const cacheHostName = 'artgallery.redis.cache.windows.net';
+const cachePassword = '9XoFDFgeOz5TBfI6FgwkiONJzKfhOy0cEAzCaHzt36o=';
 
 if (!cacheHostName) throw new Error('AZURE_CACHE_FOR_REDIS_HOST_NAME is empty');
 if (!cachePassword) throw new Error('AZURE_CACHE_FOR_REDIS_ACCESS_KEY is empty');
