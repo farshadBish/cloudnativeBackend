@@ -11,13 +11,7 @@ if (!cachePassword) throw Error('AZURE_CACHE_FOR_REDIS_ACCESS_KEY is empty');
 
 // Create a Redis client for Azure Cache for Redis v6+
 const redisClient = createClient({
-    socket: {
-        host: cacheHostName,
-        port: 6380,
-        tls: true,
-    },
-    username: 'default',
-    password: cachePassword,
+    url: `rediss://:${cachePassword}@${cacheHostName}:6380`,
 });
 
 // Connect to Redis

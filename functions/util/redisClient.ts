@@ -23,15 +23,9 @@ export async function getRedisClient(): Promise<RedisClientType> {
     }
     if (!connecting) {
         // first time: create and start the connection
-        // For Azure Cache for Redis v6+, use username 'default' with access key as password
+        // For Azure Cache for Redis v6+, use the format redis://:password@host:port
         client = createClient({
-            socket: {
-                host: cacheHostName,
-                port: 6380,
-                tls: true,
-            },
-            username: 'default',
-            password: cachePassword,
+            url: `rediss://:${cachePassword}@${cacheHostName}:6380`,
         });
         
         client.on('error', (err) => console.error('Redis Client Error', err));
