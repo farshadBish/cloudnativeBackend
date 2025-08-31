@@ -8,7 +8,7 @@ on: [push]
 # 1. Set up the following secrets in your repository:
 #   AZURE_FUNCTIONAPP_PUBLISH_PROFILE
 #
-# 2. Change these variables for your configuration:
+# 2. Change these variables for your configurationn:
 env:
     AZURE_FUNCTIONAPP_NAME: 'art-gallery-04' # set this to your function app name on Azure
     AZURE_FUNCTIONAPP_PACKAGE_PATH: './functions' # set this to the path to your function app project, defaults to the repository root
