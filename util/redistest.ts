@@ -18,7 +18,7 @@ async function testCache() {
                     port: 6380,
                     tls: true,
                 },
-                username: 'default', // 👈 required for Azure Redis
+                username: 'default', // 👈 required for Azure Rediss
                 password: cachePassword,
             });
 
