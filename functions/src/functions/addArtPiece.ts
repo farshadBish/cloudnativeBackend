@@ -6,6 +6,10 @@ export async function addArtPiece(
     request: HttpRequest,
     context: InvocationContext
 ): Promise<HttpResponseInit> {
+    context.log('addArtPiece function triggered');
+    context.log('Request method:', request.method);
+    context.log('Request URL:', request.url);
+    
     const { v4: uuidv4 } = require('uuid');
 
     const artContainerId = 'ArtPieces';
@@ -25,9 +29,10 @@ export async function addArtPiece(
         tags: string[];
         year: number;
         url: string;
+        publishOnMarket?: boolean;
     }
 
-    const { title, description, artist, userId, price, tags, year, url } =
+    const { title, description, artist, userId, price, tags, year, url, publishOnMarket = true } =
         (await request.json()) as ArtPiece;
 
     // 1) Basic validation
@@ -55,6 +60,7 @@ export async function addArtPiece(
             year,
             url,
             folderName,
+            publishOnMarket,
             likedBy: [],
             inCart: [],
             createdAt: timestamp,
@@ -112,6 +118,6 @@ export async function addArtPiece(
 
 app.http('addArtPiece', {
     methods: ['POST'],
-    authLevel: 'function',
+    authLevel: 'anonymous',
     handler: addArtPiece,
 });
